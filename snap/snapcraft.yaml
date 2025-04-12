@@ -1,0 +1,30 @@
+name: slashsum
+base: core24
+version: '0.1.0'
+summary: Multi-hash checksum calculator
+description: |
+  Slashsum computes multiple checksums (CRC32, MD5, SHA1, SHA256, SHA512) in parallel.
+  Maintained by DEOUX Nicolas (<NDXDev@gmail.com>).
+
+
+grade: stable
+confinement: classic
+
+plugs:
+  home: {}  # Accès au répertoire personnel de l'utilisateur
+  removable-media: {}  # Accès aux périphériques amovibles, si nécessaire
+
+apps:
+  slashsum:
+    command: bin/slashsum
+    plugs:
+      - home
+      - removable-media
+
+parts:
+  slashsum:
+    plugin: rust
+    source: .
+    build-packages:
+      - pkg-config
+
