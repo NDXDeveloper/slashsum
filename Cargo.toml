@@ -1,0 +1,12 @@
+[package]
+name = "slashsum"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+md5 = "0.7.0"
+sha1 = "0.10.1"
+sha2 = "0.10.6"  # Ajout pour SHA-256 et SHA-512
+crc = "3.0.1"  # Ajout pour CRC32
+crossbeam-channel = "0.5.8"  # Pour la communication inter-threads
+
