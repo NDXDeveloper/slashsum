@@ -101,18 +101,3 @@ MIT License - Voir [LICENSE](LICENSE)
 Combination of "slash" (/) for file paths and "checksum" - because every good tool needs a catchy name!
 ```
 
-Ce README inclut :
-
-1. Une présentation visuelle avec des emojis et badges
-2. Des sections claires pour l'installation et l'utilisation
-3. Des benchmarks mesurables
-4. Une explication technique du fonctionnement
-5. La gestion des dépendances
-6. Des informations de license
-7. Un appel à contribution
-
-Pour le rendre encore plus professionnel :
-1. Ajouter une capture d'écran ou GIF animé
-2. Personnaliser les benchmarks avec vos propres tests
-3. Ajouter un lien vers les workflows CI/CD
-4. Incorporer des statistiques de performance réelles
