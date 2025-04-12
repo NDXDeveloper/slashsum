@@ -39,6 +39,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get command-line arguments
     let args: Vec<String> = env::args().collect();
 
+    // Handle version request
+    if args.iter().any(|arg| arg == "--version") {
+        println!("slashsum version {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     // Handle help request
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
         print_help();
@@ -232,10 +238,12 @@ USAGE:
 OPTIONS:
     --save       Save checksums to a .checksum file
     -h, --help   Print help information
+    --version    Print version information
 
 EXAMPLES:
     slashsum file.txt            # Calculate and display checksums
     slashsum file.txt --save     # Save results to file.txt.checksum
+    slashsum --version           # Display version information
     slashsum -h                  # Show this help message"#
     );
 }
