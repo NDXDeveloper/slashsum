@@ -7,7 +7,6 @@ Voici un README.md professionnel et complet pour votre projet :
 
 Calculate multiple file checksums simultaneously with blazing-fast performance using Rust's concurrency capabilities.
 
-![Demo Animation](demo.gif) *Exemple de démo animée (optionnel)*
 
 ## ✨ Features
 
