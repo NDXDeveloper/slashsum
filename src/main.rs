@@ -39,9 +39,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get command-line arguments
     let args: Vec<String> = env::args().collect();
 
-    // Handle version request
+    // Handle version and license request
     if args.iter().any(|arg| arg == "--version") {
-        println!("slashsum version {}", env!("CARGO_PKG_VERSION"));
+        print_version_and_license();
         return Ok(());
     }
 
@@ -243,8 +243,37 @@ OPTIONS:
 EXAMPLES:
     slashsum file.txt            # Calculate and display checksums
     slashsum file.txt --save     # Save results to file.txt.checksum
-    slashsum --version           # Display version information
+    slashsum --version           # Display version and license information
     slashsum -h                  # Show this help message"#
+    );
+}
+
+/// Affiche la version et la licence MIT complète
+fn print_version_and_license() {
+    println!("slashsum version {}\n", env!("CARGO_PKG_VERSION"));
+    println!(
+        r#"MIT License
+
+Copyright (c) 2025 Nicolas DEOUX
+                   NDXDev@gmail.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE."#
     );
 }
 
