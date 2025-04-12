@@ -6,6 +6,7 @@ description: |
   Slashsum computes multiple checksums (CRC32, MD5, SHA1, SHA256, SHA512) in parallel.
   Maintained by DEOUX Nicolas (<NDXDev@gmail.com>).
 
+license: MIT
 
 grade: stable
 confinement: classic
@@ -27,4 +28,7 @@ parts:
     source: .
     build-packages:
       - pkg-config
+    build-attributes:
+      - enable-patchelf
+
 

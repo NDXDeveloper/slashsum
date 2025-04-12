@@ -25,11 +25,17 @@ Calculate multiple file checksums simultaneously with blazing-fast performance u
 
 ## 🚀 Installation
 
-### From Cargo:
-```bash
-cargo install slashsum
-```
+### Option 1: From Snap (Linux)
+If you're using a Linux system, you can easily install **Slashsum** using Snap:
 
+1. Download the Snap package:
+   - You can download the `slashsum_0.1.0_amd64.snap` file from the [releases page](https://github.com/yourusername/slashsum/releases) or from a local source.
+
+2. Install the Snap package:
+   - Open a terminal and run the following command:
+   ```bash
+   sudo snap install slashsum_0.1.0_amd64.snap --dangerous --classic
+   ```
 ### Build from source:
 ```bash
 git clone https://github.com/yourusername/slashsum
