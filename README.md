@@ -1,5 +1,3 @@
-Voici un README.md professionnel et complet pour votre projet :
-
 ```markdown
 # Slashsum 🔍
 
