@@ -16,23 +16,58 @@ use md5::Context; // MD5 hashing context
 use sha1::{Digest, Sha1}; // SHA1 hasher
 use sha2::{Sha256, Sha512}; // SHA256 and SHA512 hashers
 
-/// Computes a hash by aggregating data chunks from a channel
-/// Parameters:
-/// - rx: Receiver end of the channel for data chunks
-/// - finalizer: Function that processes the complete data and returns the hash
-fn compute_hash<H, F>(rx: crossbeam_channel::Receiver<Arc<[u8]>>, finalizer: F) -> H
+/// Calcule un hachage en traitant les données par morceaux à la volée
+/// Paramètres:
+/// - rx: Récepteur du canal pour les morceaux de données
+/// - initializer: Fonction qui initialise le contexte de hachage
+/// - updater: Fonction qui met à jour le contexte avec de nouvelles données
+/// - finalizer: Fonction qui produit le hachage final
+fn compute_hash<H, C, I, U, F>(
+    rx: crossbeam_channel::Receiver<Arc<[u8]>>,
+    initializer: I,
+    updater: U,
+    finalizer: F,
+) -> H
 where
-    F: FnOnce(Vec<u8>) -> H,
+    I: FnOnce() -> C,
+    U: Fn(&mut C, &[u8]),
+    F: FnOnce(C) -> H,
 {
-    let mut buffer = Vec::new();
+    // Initialiser le contexte de hachage
+    let mut context = initializer();
 
-    // Collect all data chunks until channel closes
+    // Traiter chaque morceau de données dès réception
     while let Ok(chunk) = rx.recv() {
-        buffer.extend_from_slice(&chunk);
+        updater(&mut context, &chunk);
     }
 
-    // Process complete data with the provided hash function
-    finalizer(buffer)
+    // Finaliser le hachage
+    finalizer(context)
+}
+
+// Structure pour encapsuler le calcul CRC32
+struct Crc32Calculator {
+    crc_algo: Crc<u32>,
+    data: Vec<u8>,
+}
+
+impl Crc32Calculator {
+    fn new() -> Self {
+        Self {
+            crc_algo: Crc::<u32>::new(&crc::CRC_32_ISO_HDLC),
+            data: Vec::new(),
+        }
+    }
+
+    fn update(&mut self, new_data: &[u8]) {
+        // Ajout des nouvelles données
+        self.data.extend_from_slice(new_data);
+    }
+
+    fn finalize(self) -> u32 {
+        // Calcul du CRC32 sur toutes les données accumulées
+        self.crc_algo.checksum(&self.data)
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -95,40 +130,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Spawn thread for CRC32 calculation
     let crc32_handle = thread::spawn(move || {
-        compute_hash(crc32_rx, |data| {
-            let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
-            format!("{:08x}", crc.checksum(&data)) // 8-digit hexadecimal
-        })
+        compute_hash(
+            crc32_rx,
+            || Crc32Calculator::new(),
+            |calculator, data| calculator.update(data),
+            |calculator| format!("{:08x}", calculator.finalize()),
+        )
     });
 
+
     // Spawn thread for MD5 calculation
+    // Thread de calcul MD5
     let md5_handle = thread::spawn(move || {
-        compute_hash(md5_rx, |data| {
-            let mut context = Context::new();
-            context.consume(&data);
-            format!("{:x}", context.compute())
-        })
+        compute_hash(
+            md5_rx,
+            || Context::new(),                     // initialisation du contexte MD5
+            |context, data| context.consume(data), // mise à jour avec les données
+            |context| format!("{:x}", context.compute()) // finalisation et formatage
+        )
     });
 
     // Spawn thread for SHA1 calculation
     let sha1_handle = thread::spawn(move || {
-        compute_hash(sha1_rx, |data| {
-            format!("{:x}", Sha1::new().chain_update(&data).finalize())
-        })
+        compute_hash(
+            sha1_rx,
+            || Sha1::new(),                          // initialisation du contexte SHA1
+            |digest, data| { digest.update(data); }, // mise à jour avec les données
+            |digest| format!("{:x}", digest.finalize()) // finalisation et formatage
+        )
     });
 
     // Spawn thread for SHA256 calculation
     let sha256_handle = thread::spawn(move || {
-        compute_hash(sha256_rx, |data| {
-            format!("{:x}", Sha256::new().chain_update(&data).finalize())
-        })
+        compute_hash(
+            sha256_rx,
+            || Sha256::new(),                        // initialisation du contexte SHA256
+            |digest, data| { digest.update(data); }, // mise à jour avec les données
+            |digest| format!("{:x}", digest.finalize()) // finalisation et formatage
+        )
     });
 
     // Spawn thread for SHA512 calculation
     let sha512_handle = thread::spawn(move || {
-        compute_hash(sha512_rx, |data| {
-            format!("{:x}", Sha512::new().chain_update(&data).finalize())
-        })
+        compute_hash(
+            sha512_rx,
+            || Sha512::new(),                        // initialisation du contexte SHA512
+            |digest, data| { digest.update(data); }, // mise à jour avec les données
+            |digest| format!("{:x}", digest.finalize()) // finalisation et formatage
+        )
     });
 
     // Read file in 1MB chunks
@@ -277,6 +326,7 @@ SOFTWARE."#
     );
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,11 +349,12 @@ mod tests {
         tx.send(Arc::from([0x61u8, 0x62, 0x63])).unwrap(); // "abc"
         drop(tx);
 
-        let result = compute_hash(rx, |data| {
-            let mut context = Context::new();
-            context.consume(&data);
-            format!("{:x}", context.compute())
-        });
+        let result = compute_hash(
+            rx,
+            || Context::new(),                     // initialisation du contexte MD5
+            |context, data| context.consume(data), // mise à jour avec les données
+            |context| format!("{:x}", context.compute()) // finalisation et formatage
+        );
 
         assert_eq!(result, "900150983cd24fb0d6963f7d28e17f72");
     }
@@ -316,10 +367,26 @@ mod tests {
         tx.send(Arc::from(b"Hello world!".as_ref())).unwrap();
         drop(tx);
 
-        let result = compute_hash(rx, |data| {
-            let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
-            format!("{:08x}", crc.checksum(&data)) // 8-digit hexadecimal
-        });
+        // Utiliser la même structure que celle que vous avez adoptée pour le CRC32
+        let result = compute_hash(
+            rx,
+            || {
+                // Structure pour le calcul du CRC32
+                struct Crc32Calculator {
+                    crc_algo: Crc<u32>,
+                    data: Vec<u8>,
+                }
+
+                Crc32Calculator {
+                    crc_algo: Crc::<u32>::new(&crc::CRC_32_ISO_HDLC),
+                    data: Vec::new(),
+                }
+            },
+            |calculator, data| {
+                calculator.data.extend_from_slice(data);
+            },
+            |calculator| format!("{:08x}", calculator.crc_algo.checksum(&calculator.data))
+        );
 
         assert_eq!(result, "1b851995");
     }
@@ -331,3 +398,4 @@ mod tests {
         assert!(result.is_err(), "Should return error for missing file");
     }
 }
+
