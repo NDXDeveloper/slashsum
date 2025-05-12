@@ -1,4 +1,3 @@
-```markdown
 # Slashsum 🔍
 
 **Multi-threaded file checksum calculator** | [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
