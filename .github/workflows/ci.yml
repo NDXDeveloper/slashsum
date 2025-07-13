@@ -152,6 +152,7 @@ jobs:
         echo "Building USER installer for version: $VERSION (Major: $MAJOR, Minor: $MINOR, Build: $BUILD)"
 
         cat > installer_user.nsi << EOF
+
         ; Slashsum Installer - Version minimale sans macros
         ; Installation dans le profil utilisateur avec PATH utilisateur
 
@@ -168,7 +169,7 @@ jobs:
         OutFile "slashsum-setup-user.exe"
 
         ; Installation dans le profil utilisateur (pas besoin d'admin)
-        InstallDir "$LOCALAPPDATA\${COMPANYNAME}\${APPNAME}"
+        InstallDir "\$LOCALAPPDATA\${COMPANYNAME}\${APPNAME}"
 
         ; Pas besoin de droits admin
         RequestExecutionLevel user
@@ -189,24 +190,24 @@ jobs:
         ; Section d'installation principal
         Section "install"
             ; Créer le répertoire d'installation
-            CreateDirectory "$INSTDIR"
+            CreateDirectory "\$INSTDIR"
 
             ; Copier les fichiers
-            SetOutPath "$INSTDIR"
+            SetOutPath "\$INSTDIR"
             File "slashsum-windows-amd64.exe"
             File /oname=slashsum.exe "slashsum-windows-amd64.exe"
 
             ; Ajouter au PATH utilisateur - méthode simple
             DetailPrint "Configuring user PATH..."
-            ReadRegStr $0 HKCU "Environment" "PATH"
+            ReadRegStr \$0 HKCU "Environment" "PATH"
 
             ; Si PATH est vide, ajouter juste notre chemin
-            StrCmp $0 "" 0 +3
-            WriteRegStr HKCU "Environment" "PATH" "$INSTDIR"
+            StrCmp \$0 "" 0 +3
+            WriteRegStr HKCU "Environment" "PATH" "\$INSTDIR"
             Goto PathDone
 
             ; Sinon, ajouter à la fin avec un point-virgule
-            WriteRegStr HKCU "Environment" "PATH" "$0;$INSTDIR"
+            WriteRegStr HKCU "Environment" "PATH" "\$0;\$INSTDIR"
 
             PathDone:
             ; Notifier Windows du changement
@@ -215,58 +216,58 @@ jobs:
 
             ; Créer l'entrée de désinstallation dans le registre utilisateur
             WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
-            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "$INSTDIR\uninstall.exe"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "\$INSTDIR\uninstall.exe"
             WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "${COMPANYNAME}"
             WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
-            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "$INSTDIR"
-            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$INSTDIR\slashsum.exe"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "\$INSTDIR"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "\$INSTDIR\slashsum.exe"
             WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
             WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair" 1
             WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "EstimatedSize" 3072
 
             ; Créer le désinstallateur
-            WriteUninstaller "$INSTDIR\uninstall.exe"
+            WriteUninstaller "\$INSTDIR\uninstall.exe"
 
             ; Créer un raccourci sur le bureau (optionnel)
             ;MessageBox MB_YESNO "Créer un raccourci sur le bureau ?" IDNO +2
-            ;CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\slashsum.exe"
+            ;CreateShortcut "\$DESKTOP\${APPNAME}.lnk" "\$INSTDIR\slashsum.exe"
 
             ; Créer des raccourcis dans le menu démarrer
             ;c'est une application console donc pas besoin de ces raccourcis
-            ;CreateDirectory "$SMPROGRAMS\${APPNAME}"
-            ;CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\slashsum.exe"
-            ;CreateShortcut "$SMPROGRAMS\${APPNAME}\Désinstaller ${APPNAME}.lnk" "$INSTDIR\uninstall.exe"
+            ;CreateDirectory "\$SMPROGRAMS\${APPNAME}"
+            ;CreateShortcut "\$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "\$INSTDIR\slashsum.exe"
+            ;CreateShortcut "\$SMPROGRAMS\${APPNAME}\Désinstaller ${APPNAME}.lnk" "\$INSTDIR\uninstall.exe"
 
             DetailPrint "Installation complete!"
 
             ; Message de fin
             MessageBox MB_YESNO|MB_ICONQUESTION "Installation complete! $\n$\nOpen a terminal to test 'slashsum'?$\n$\nNote: Restart your terminal if necessary." IDNO +2
-            ExecShell "open" "cmd" "/k set PATH=%PATH%;$INSTDIR && echo Slashsum installed ! && slashsum --help"
+            ExecShell "open" "cmd" "/k set PATH=%PATH%;\$INSTDIR && echo Slashsum installed ! && slashsum --help"
         SectionEnd
 
         ; Section de désinstallation
         Section "uninstall"
             ; Supprimer du PATH utilisateur - méthode simple
             DetailPrint "Cleaning up the user PATH..."
-            ReadRegStr $0 HKCU "Environment" "PATH"
+            ReadRegStr \$0 HKCU "Environment" "PATH"
 
             ; Remplacer les occurrences de notre chemin
             ; Note: Cette méthode simple peut laisser des point-virgules orphelins
             ; mais c'est acceptable pour un installateur basique
 
             ; Supprimer les fichiers
-            Delete "$INSTDIR\slashsum.exe"
-            Delete "$INSTDIR\slashsum-windows-amd64.exe"
-            Delete "$INSTDIR\uninstall.exe"
+            Delete "\$INSTDIR\slashsum.exe"
+            Delete "\$INSTDIR\slashsum-windows-amd64.exe"
+            Delete "\$INSTDIR\uninstall.exe"
 
             ; Supprimer les raccourcis
-            ;Delete "$DESKTOP\${APPNAME}.lnk"
-            ;Delete "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk"
-            ;Delete "$SMPROGRAMS\${APPNAME}\Désinstaller ${APPNAME}.lnk"
-            RMDir "$SMPROGRAMS\${APPNAME}"
+            ;Delete "\$DESKTOP\${APPNAME}.lnk"
+            ;Delete "\$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk"
+            ;Delete "\$SMPROGRAMS\${APPNAME}\Désinstaller ${APPNAME}.lnk"
+            RMDir "\$SMPROGRAMS\${APPNAME}"
 
             ; Supprimer le répertoire d'installation
-            RMDir "$INSTDIR"
+            RMDir "\$INSTDIR"
 
             ; Supprimer l'entrée de désinstallation
             DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
@@ -291,6 +292,7 @@ jobs:
         echo "Building ADMIN installer for version: $VERSION (Major: $MAJOR, Minor: $MINOR, Build: $BUILD)"
 
         cat > installer_admin.nsi << EOF
+
         ; Slashsum Installer - Version Admin ultra-simple
         ; Installation système avec droits administrateur
 
@@ -310,7 +312,7 @@ jobs:
         OutFile "slashsum-setup-admin.exe"
 
         ; Installation dans Program Files (nécessite admin)
-        InstallDir "$PROGRAMFILES64\${COMPANYNAME}\${APPNAME}"
+        InstallDir "\$PROGRAMFILES64\${COMPANYNAME}\${APPNAME}"
 
         ; Droits admin requis
         RequestExecutionLevel admin
@@ -331,22 +333,22 @@ jobs:
         ; Section d'installation principal
         Section "install"
             ; Créer le répertoire d'installation
-            CreateDirectory "$INSTDIR"
+            CreateDirectory "\$INSTDIR"
 
             ; Copier les fichiers
-            SetOutPath "$INSTDIR"
+            SetOutPath "\$INSTDIR"
             File "slashsum-windows-amd64.exe"
             File /oname=slashsum.exe "slashsum-windows-amd64.exe"
 
             ; Ajouter au PATH système - méthode brutale mais qui marche
             DetailPrint "Configuring system PATH..."
-            ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH"
+            ReadRegStr \$0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH"
 
             ; Ajouter notre chemin (même s'il existe déjà, pas grave)
-            StrCmp $0 "" 0 +3
-            WriteRegStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH" "$INSTDIR"
+            StrCmp \$0 "" 0 +3
+            WriteRegStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH" "\$INSTDIR"
             Goto PathDone
-            WriteRegStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH" "$0;$INSTDIR"
+            WriteRegStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH" "\$0;\$INSTDIR"
 
             PathDone:
             ; Notifier Windows du changement
@@ -355,23 +357,23 @@ jobs:
 
             ; Créer l'entrée de désinstallation
             WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "$INSTDIR\uninstall.exe"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "\$INSTDIR\uninstall.exe"
             WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "${COMPANYNAME}"
             WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "$INSTDIR"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$INSTDIR\slashsum.exe"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "\$INSTDIR"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "\$INSTDIR\slashsum.exe"
             WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
             WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair" 1
             WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "EstimatedSize" 3072
 
             ; Créer le désinstallateur
-            WriteUninstaller "$INSTDIR\uninstall.exe"
+            WriteUninstaller "\$INSTDIR\uninstall.exe"
 
             DetailPrint "Installation complete!"
 
             ; Message de fin
             MessageBox MB_YESNO|MB_ICONQUESTION "Installation terminée !$\n$\nOpen a terminal to test 'slashsum'?$\n$\nNote: Restart your terminal if necessary." IDNO +2
-            ExecShell "open" "cmd" "/k set PATH=%PATH%;$INSTDIR && echo Slashsum CLI installed ! && slashsum --help"
+            ExecShell "open" "cmd" "/k set PATH=%PATH%;\$INSTDIR && echo Slashsum CLI installed ! && slashsum --help"
         SectionEnd
 
         ; Section de désinstallation
@@ -381,12 +383,12 @@ jobs:
             DetailPrint "Cleaning up files..."
 
             ; Supprimer les fichiers
-            Delete "$INSTDIR\slashsum.exe"
-            Delete "$INSTDIR\slashsum-windows-amd64.exe"
-            Delete "$INSTDIR\uninstall.exe"
+            Delete "\$INSTDIR\slashsum.exe"
+            Delete "\$INSTDIR\slashsum-windows-amd64.exe"
+            Delete "\$INSTDIR\uninstall.exe"
 
             ; Supprimer le répertoire d'installation
-            RMDir "$INSTDIR"
+            RMDir "\$INSTDIR"
 
             ; Supprimer l'entrée de désinstallation
             DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
