@@ -544,7 +544,7 @@ jobs:
         name: slashsum-deb
         path: slashsum_*.deb
 
-  # Release finale (seulement pour les tags)  # Release finale (seulement pour les tags)
+  # Release finale (seulement pour les tags)
   release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
@@ -560,7 +560,7 @@ jobs:
 
     - name: Prepare release files
       run: |
-    # Organiser tous les fichiers
+        # Organiser tous les fichiers
         echo "=== All downloaded artifacts ==="
         find . -name "slashsum*" -type f | head -20
 
