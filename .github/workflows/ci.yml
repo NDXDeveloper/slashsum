@@ -539,6 +539,9 @@ jobs:
         EOF
 
         nfpm pkg --packager deb --config nfpm.yaml --target slashsum_${TAG_NAME}_amd64.deb
+
+        chmod a+r slashsum_${TAG_NAME}_amd64.deb
+
         ls -la *.deb
         rm nfpm_2.43.0_amd64.deb
 
