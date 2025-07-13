@@ -1,17 +1,17 @@
 // Import standard library components
 use std::{
-    env, // Environment variables and command-line arguments
-    fs::File, // File handling
+    env,                   // Environment variables and command-line arguments
+    fs::File,              // File handling
     io::{BufReader, Read}, // Buffered reading
     path::{Path, PathBuf}, // Path manipulation
-    sync::Arc, // Atomic Reference Counted pointer for thread-safe sharing
-    thread, // Thread management
-    time::Instant, // Time measurement
+    sync::Arc,             // Atomic Reference Counted pointer for thread-safe sharing
+    thread,                // Thread management
+    time::Instant,         // Time measurement
 };
 
 // External crates
-use crossbeam_channel::bounded; // Thread communication channels
 use crc::Crc; // CRC32 implementation
+use crossbeam_channel::bounded; // Thread communication channels
 use md5::Context; // MD5 hashing context
 use sha1::{Digest, Sha1}; // SHA1 hasher
 use sha2::{Sha256, Sha512}; // SHA256 and SHA512 hashers
@@ -73,9 +73,11 @@ impl Crc32Calculator {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
-
-    println!("slashsum {} - {}", option_env!("BUILD_VERSION").unwrap_or("dev"), option_env!("GIT_COMMIT").unwrap_or("unknown"));
+    println!(
+        "slashsum {} - {}",
+        option_env!("BUILD_VERSION").unwrap_or("dev"),
+        option_env!("GIT_COMMIT").unwrap_or("unknown")
+    );
 
     // Get command-line arguments
     let args: Vec<String> = env::args().collect();
@@ -128,11 +130,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut reader = BufReader::with_capacity(1_048_576, file); // 1MB buffer
 
     // Create communication channels for each hash algorithm
-    let (crc32_tx, crc32_rx) = bounded(1024);  // CRC32 channel
-    let (md5_tx, md5_rx) = bounded(1024);      // MD5 channel
-    let (sha1_tx, sha1_rx) = bounded(1024);    // SHA1 channel
-    let (sha256_tx, sha256_rx) = bounded(1024);// SHA256 channel
-    let (sha512_tx, sha512_rx) = bounded(1024);// SHA512 channel
+    let (crc32_tx, crc32_rx) = bounded(1024); // CRC32 channel
+    let (md5_tx, md5_rx) = bounded(1024); // MD5 channel
+    let (sha1_tx, sha1_rx) = bounded(1024); // SHA1 channel
+    let (sha256_tx, sha256_rx) = bounded(1024); // SHA256 channel
+    let (sha512_tx, sha512_rx) = bounded(1024); // SHA512 channel
 
     // Spawn thread for CRC32 calculation
     let crc32_handle = thread::spawn(move || {
@@ -144,7 +146,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     });
 
-
     // Spawn thread for MD5 calculation
     // Thread de calcul MD5
     let md5_handle = thread::spawn(move || {
@@ -152,7 +153,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             md5_rx,
             || Context::new(),                     // initialisation du contexte MD5
             |context, data| context.consume(data), // mise à jour avec les données
-            |context| format!("{:x}", context.compute()) // finalisation et formatage
+            |context| format!("{:x}", context.compute()), // finalisation et formatage
         )
     });
 
@@ -160,9 +161,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sha1_handle = thread::spawn(move || {
         compute_hash(
             sha1_rx,
-            || Sha1::new(),                          // initialisation du contexte SHA1
-            |digest, data| { digest.update(data); }, // mise à jour avec les données
-            |digest| format!("{:x}", digest.finalize()) // finalisation et formatage
+            || Sha1::new(), // initialisation du contexte SHA1
+            |digest, data| {
+                digest.update(data);
+            }, // mise à jour avec les données
+            |digest| format!("{:x}", digest.finalize()), // finalisation et formatage
         )
     });
 
@@ -170,9 +173,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sha256_handle = thread::spawn(move || {
         compute_hash(
             sha256_rx,
-            || Sha256::new(),                        // initialisation du contexte SHA256
-            |digest, data| { digest.update(data); }, // mise à jour avec les données
-            |digest| format!("{:x}", digest.finalize()) // finalisation et formatage
+            || Sha256::new(), // initialisation du contexte SHA256
+            |digest, data| {
+                digest.update(data);
+            }, // mise à jour avec les données
+            |digest| format!("{:x}", digest.finalize()), // finalisation et formatage
         )
     });
 
@@ -180,9 +185,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sha512_handle = thread::spawn(move || {
         compute_hash(
             sha512_rx,
-            || Sha512::new(),                        // initialisation du contexte SHA512
-            |digest, data| { digest.update(data); }, // mise à jour avec les données
-            |digest| format!("{:x}", digest.finalize()) // finalisation et formatage
+            || Sha512::new(), // initialisation du contexte SHA512
+            |digest, data| {
+                digest.update(data);
+            }, // mise à jour avec les données
+            |digest| format!("{:x}", digest.finalize()), // finalisation et formatage
         )
     });
 
@@ -190,7 +197,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let mut buffer = vec![0; 1_048_576]; // 1MB buffer
         let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 { // End of file
+        if bytes_read == 0 {
+            // End of file
             break;
         }
         buffer.truncate(bytes_read);
@@ -235,7 +243,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Handle --save flag
     if save_flag {
         let path = Path::new(file_path);
-        let file_name = path.file_name()
+        let file_name = path
+            .file_name()
             .ok_or("Invalid file name")?
             .to_str()
             .ok_or("File name is not valid UTF-8")?;
@@ -331,7 +340,6 @@ SOFTWARE."#
     );
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -366,7 +374,7 @@ mod tests {
             rx,
             || Context::new(),                     // initialisation du contexte MD5
             |context, data| context.consume(data), // mise à jour avec les données
-            |context| format!("{:x}", context.compute()) // finalisation et formatage
+            |context| format!("{:x}", context.compute()), // finalisation et formatage
         );
 
         assert_eq!(result, "900150983cd24fb0d6963f7d28e17f72");
@@ -398,7 +406,7 @@ mod tests {
             |calculator, data| {
                 calculator.data.extend_from_slice(data);
             },
-            |calculator| format!("{:08x}", calculator.crc_algo.checksum(&calculator.data))
+            |calculator| format!("{:08x}", calculator.crc_algo.checksum(&calculator.data)),
         );
 
         assert_eq!(result, "1b851995");
@@ -421,7 +429,10 @@ mod tests {
         assert_eq!(format_size(1536), "1.50 KB (1536 bytes)");
         assert_eq!(format_size(1_099_511_627_776), "1 TB (1099511627776 bytes)");
         // Correction: la valeur réelle calculée par votre fonction
-        assert_eq!(format_size(u64::MAX), "16777216 TB (18446744073709551615 bytes)");
+        assert_eq!(
+            format_size(u64::MAX),
+            "16777216 TB (18446744073709551615 bytes)"
+        );
     }
 
     #[test]
@@ -434,8 +445,10 @@ mod tests {
         let result = compute_hash(
             rx,
             || Sha1::new(),
-            |digest, data| { digest.update(data); },
-            |digest| format!("{:x}", digest.finalize())
+            |digest, data| {
+                digest.update(data);
+            },
+            |digest| format!("{:x}", digest.finalize()),
         );
 
         assert_eq!(result, "a9993e364706816aba3e25717850c26c9cd0d89d");
@@ -451,11 +464,16 @@ mod tests {
         let result = compute_hash(
             rx,
             || Sha256::new(),
-            |digest, data| { digest.update(data); },
-            |digest| format!("{:x}", digest.finalize())
+            |digest, data| {
+                digest.update(data);
+            },
+            |digest| format!("{:x}", digest.finalize()),
         );
 
-        assert_eq!(result, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        assert_eq!(
+            result,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]
@@ -468,11 +486,16 @@ mod tests {
         let result = compute_hash(
             rx,
             || Sha512::new(),
-            |digest, data| { digest.update(data); },
-            |digest| format!("{:x}", digest.finalize())
+            |digest, data| {
+                digest.update(data);
+            },
+            |digest| format!("{:x}", digest.finalize()),
         );
 
-        assert_eq!(result, "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
+        assert_eq!(
+            result,
+            "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
+        );
     }
 
     #[test]
@@ -485,7 +508,7 @@ mod tests {
             rx,
             || Context::new(),
             |context, data| context.consume(data),
-            |context| format!("{:x}", context.compute())
+            |context| format!("{:x}", context.compute()),
         );
 
         // MD5 d'une chaîne vide
@@ -506,7 +529,7 @@ mod tests {
             rx,
             || Context::new(),
             |context, data| context.consume(data),
-            |context| format!("{:x}", context.compute())
+            |context| format!("{:x}", context.compute()),
         );
 
         // MD5 de "Hello World!"
@@ -548,7 +571,7 @@ mod tests {
             rx,
             || Context::new(),
             |context, data| context.consume(data),
-            |context| format!("{:x}", context.compute())
+            |context| format!("{:x}", context.compute()),
         );
 
         // Ce test vérifie que le traitement de gros chunks fonctionne
@@ -566,7 +589,7 @@ mod tests {
                 rx,
                 || Context::new(),
                 |context, data| context.consume(data),
-                |context| format!("{:x}", context.compute())
+                |context| format!("{:x}", context.compute()),
             )
         });
 
@@ -602,7 +625,7 @@ mod tests {
                 md5_rx,
                 || Context::new(),
                 |context, data| context.consume(data),
-                |context| format!("{:x}", context.compute())
+                |context| format!("{:x}", context.compute()),
             )
         });
 
@@ -610,8 +633,10 @@ mod tests {
             compute_hash(
                 sha1_rx,
                 || Sha1::new(),
-                |digest, data| { digest.update(data); },
-                |digest| format!("{:x}", digest.finalize())
+                |digest, data| {
+                    digest.update(data);
+                },
+                |digest| format!("{:x}", digest.finalize()),
             )
         });
 
@@ -674,7 +699,7 @@ mod tests {
             rx,
             || Context::new(),
             |context, data| context.consume(data),
-            |context| format!("{:x}", context.compute())
+            |context| format!("{:x}", context.compute()),
         );
 
         let duration = start.elapsed();
@@ -683,18 +708,4 @@ mod tests {
         // Vérifier que ça prend moins de 1 seconde (ajustez selon vos besoins)
         assert!(duration.as_secs() < 1);
     }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
