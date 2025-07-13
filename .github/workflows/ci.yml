@@ -145,6 +145,7 @@ jobs:
 
         # Extraire les composants de version (ex: 0.2.1 -> 0, 2, 1)
         IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+        PATCH=${VERSION_PARTS[3]:-0}
         MAJOR=${VERSION_PARTS[0]:-0}
         MINOR=${VERSION_PARTS[1]:-0}
         BUILD=${VERSION_PARTS[2]:-0}
@@ -175,7 +176,7 @@ jobs:
         RequestExecutionLevel user
 
         ; Métadonnées de l'installateur
-        VIProductVersion "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.0"
+        VIProductVersion "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.${PATCH}"
         VIAddVersionKey "ProductName" "${APPNAME}"
         VIAddVersionKey "CompanyName" "${COMPANYNAME}"
         VIAddVersionKey "FileDescription" "${DESCRIPTION}"
@@ -285,6 +286,7 @@ jobs:
 
         # Extraire les composants de version
         IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+        PATCH=${VERSION_PARTS[3]:-0}
         MAJOR=${VERSION_PARTS[0]:-0}
         MINOR=${VERSION_PARTS[1]:-0}
         BUILD=${VERSION_PARTS[2]:-0}
@@ -318,7 +320,7 @@ jobs:
         RequestExecutionLevel admin
 
         ; Métadonnées de l'installateur
-        VIProductVersion "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.0"
+        VIProductVersion "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.${PATCH}"
         VIAddVersionKey "ProductName" "${APPNAME}"
         VIAddVersionKey "CompanyName" "${COMPANYNAME}"
         VIAddVersionKey "FileDescription" "${DESCRIPTION}"
