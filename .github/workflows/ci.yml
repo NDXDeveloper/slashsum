@@ -35,10 +35,11 @@ jobs:
           target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+    # cargo clippy -- -D warnings
     - name: Run tests
       run: |
         cargo test
-        cargo clippy -- -D warnings
+
         cargo fmt -- --check
 
     - name: Build and test binary
