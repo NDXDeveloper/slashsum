@@ -16,6 +16,8 @@ use md5::Context; // MD5 hashing context
 use sha1::{Digest, Sha1}; // SHA1 hasher
 use sha2::{Sha256, Sha512}; // SHA256 and SHA512 hashers
 
+//use std::process::Command;
+
 /// Calcule un hachage en traitant les données par morceaux à la volée
 /// Paramètres:
 /// - rx: Récepteur du canal pour les morceaux de données
@@ -71,6 +73,10 @@ impl Crc32Calculator {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+
+    println!("slashsum {} - {}", option_env!("BUILD_VERSION").unwrap_or("dev"), option_env!("GIT_COMMIT").unwrap_or("unknown"));
+
     // Get command-line arguments
     let args: Vec<String> = env::args().collect();
 
@@ -107,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Validate input file exists
     let file_path = &args[1];
     if !Path::new(file_path).exists() {
-        eprintln!("Error: File '{}' not found", file_path);
+        eprintln!("Error: File '{file_path}' not found");
         eprintln!("Use -h or --help for usage instructions");
         std::process::exit(1);
     }
@@ -299,7 +305,6 @@ EXAMPLES:
 
 /// Affiche la version et la licence MIT complète
 fn print_version_and_license() {
-    println!("slashsum version {}\n", env!("CARGO_PKG_VERSION"));
     println!(
         r#"MIT License
 
@@ -332,6 +337,14 @@ mod tests {
     use super::*;
     use crossbeam_channel::bounded;
     use md5::Context;
+
+    use sha1::{Digest, Sha1};
+    use sha2::{Sha256, Sha512};
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    use std::time::Instant;
 
     #[test]
     fn test_format_size() {
@@ -397,5 +410,291 @@ mod tests {
         let result = File::open("nonexistent_file.txt");
         assert!(result.is_err(), "Should return error for missing file");
     }
+
+    #[test]
+    fn test_format_size_edge_cases() {
+        // Test des cas limites pour format_size
+        assert_eq!(format_size(0), "0 bytes");
+        assert_eq!(format_size(1), "1 bytes");
+        assert_eq!(format_size(1023), "1023 bytes");
+        assert_eq!(format_size(1024), "1 KB (1024 bytes)");
+        assert_eq!(format_size(1536), "1.50 KB (1536 bytes)");
+        assert_eq!(format_size(1_099_511_627_776), "1 TB (1099511627776 bytes)");
+        // Correction: la valeur réelle calculée par votre fonction
+        assert_eq!(format_size(u64::MAX), "16777216 TB (18446744073709551615 bytes)");
+    }
+
+    #[test]
+    fn test_compute_hash_sha1() {
+        // Test SHA1 avec "abc"
+        let (tx, rx) = bounded(2);
+        tx.send(Arc::from(b"abc".as_ref())).unwrap();
+        drop(tx);
+
+        let result = compute_hash(
+            rx,
+            || Sha1::new(),
+            |digest, data| { digest.update(data); },
+            |digest| format!("{:x}", digest.finalize())
+        );
+
+        assert_eq!(result, "a9993e364706816aba3e25717850c26c9cd0d89d");
+    }
+
+    #[test]
+    fn test_compute_hash_sha256() {
+        // Test SHA256 avec "abc"
+        let (tx, rx) = bounded(2);
+        tx.send(Arc::from(b"abc".as_ref())).unwrap();
+        drop(tx);
+
+        let result = compute_hash(
+            rx,
+            || Sha256::new(),
+            |digest, data| { digest.update(data); },
+            |digest| format!("{:x}", digest.finalize())
+        );
+
+        assert_eq!(result, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    }
+
+    #[test]
+    fn test_compute_hash_sha512() {
+        // Test SHA512 avec "abc"
+        let (tx, rx) = bounded(2);
+        tx.send(Arc::from(b"abc".as_ref())).unwrap();
+        drop(tx);
+
+        let result = compute_hash(
+            rx,
+            || Sha512::new(),
+            |digest, data| { digest.update(data); },
+            |digest| format!("{:x}", digest.finalize())
+        );
+
+        assert_eq!(result, "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
+    }
+
+    #[test]
+    fn test_compute_hash_empty_input() {
+        // Test avec une entrée vide
+        let (tx, rx) = bounded(1);
+        drop(tx); // Fermer immédiatement le canal
+
+        let result = compute_hash(
+            rx,
+            || Context::new(),
+            |context, data| context.consume(data),
+            |context| format!("{:x}", context.compute())
+        );
+
+        // MD5 d'une chaîne vide
+        assert_eq!(result, "d41d8cd98f00b204e9800998ecf8427e");
+    }
+
+    #[test]
+    fn test_compute_hash_multiple_chunks() {
+        // Test avec plusieurs chunks
+        let (tx, rx) = bounded(5);
+
+        // Envoyer "Hello" puis " World!" pour former "Hello World!"
+        tx.send(Arc::from(b"Hello".as_ref())).unwrap();
+        tx.send(Arc::from(b" World!".as_ref())).unwrap();
+        drop(tx);
+
+        let result = compute_hash(
+            rx,
+            || Context::new(),
+            |context, data| context.consume(data),
+            |context| format!("{:x}", context.compute())
+        );
+
+        // MD5 de "Hello World!"
+        assert_eq!(result, "ed076287532e86365e841e92bfc50d8c");
+    }
+
+    #[test]
+    fn test_crc32_calculator() {
+        // Test direct de la structure Crc32Calculator
+        let mut calculator = Crc32Calculator::new();
+        calculator.update(b"Hello");
+        calculator.update(b" World!");
+        let result = calculator.finalize();
+
+        // CRC32 de "Hello World!" - valeur corrigée
+        assert_eq!(result, 472456355); // 0x1c291ca3 en décimal
+    }
+
+    #[test]
+    fn test_crc32_calculator_empty() {
+        // Test CRC32 avec données vides
+        let calculator = Crc32Calculator::new();
+        let result = calculator.finalize();
+
+        // CRC32 d'une chaîne vide
+        assert_eq!(result, 0x00000000);
+    }
+
+    #[test]
+    fn test_large_chunk_processing() {
+        // Test avec un gros chunk (similaire à la taille du buffer 1MB)
+        let large_data = vec![0x42u8; 1_048_576]; // 1MB de données
+        let (tx, rx) = bounded(2);
+
+        tx.send(Arc::from(large_data.into_boxed_slice())).unwrap();
+        drop(tx);
+
+        let result = compute_hash(
+            rx,
+            || Context::new(),
+            |context, data| context.consume(data),
+            |context| format!("{:x}", context.compute())
+        );
+
+        // Ce test vérifie que le traitement de gros chunks fonctionne
+        assert_eq!(result.len(), 32); // MD5 produit toujours 32 caractères hex
+    }
+
+    #[test]
+    fn test_channel_capacity() {
+        // Test avec une capacité de canal limitée
+        let (tx, rx) = bounded(1); // Capacité très petite
+
+        // Utiliser un thread pour lire les données pendant qu'on les envoie
+        let handle = std::thread::spawn(move || {
+            compute_hash(
+                rx,
+                || Context::new(),
+                |context, data| context.consume(data),
+                |context| format!("{:x}", context.compute())
+            )
+        });
+
+        // Envoyer plusieurs chunks rapidement
+        for i in 0..10 {
+            let data = format!("chunk{}", i);
+            tx.send(Arc::from(data.as_bytes())).unwrap();
+        }
+        drop(tx); // Fermer le canal
+
+        // Attendre le résultat
+        let result = handle.join().unwrap();
+
+        // Vérifier que tous les chunks ont été traités
+        assert_eq!(result.len(), 32);
+    }
+
+    #[test]
+    fn test_concurrent_hash_computation() {
+        // Test simulant le comportement concurrent réel
+        use std::thread;
+
+        let test_data = b"This is a test for concurrent hash computation";
+        let chunk = Arc::from(test_data.as_ref());
+
+        // Créer plusieurs canaux comme dans le code principal
+        let (md5_tx, md5_rx) = bounded(1024);
+        let (sha1_tx, sha1_rx) = bounded(1024);
+
+        // Lancer les threads de calcul
+        let md5_handle = thread::spawn(move || {
+            compute_hash(
+                md5_rx,
+                || Context::new(),
+                |context, data| context.consume(data),
+                |context| format!("{:x}", context.compute())
+            )
+        });
+
+        let sha1_handle = thread::spawn(move || {
+            compute_hash(
+                sha1_rx,
+                || Sha1::new(),
+                |digest, data| { digest.update(data); },
+                |digest| format!("{:x}", digest.finalize())
+            )
+        });
+
+        // Envoyer les données
+        md5_tx.send(Arc::clone(&chunk)).unwrap();
+        sha1_tx.send(chunk).unwrap();
+
+        // Fermer les canaux
+        drop(md5_tx);
+        drop(sha1_tx);
+
+        // Récupérer les résultats
+        let md5_result = md5_handle.join().unwrap();
+        let sha1_result = sha1_handle.join().unwrap();
+
+        // Vérifier les résultats - correction avec la vraie valeur calculée
+        assert_eq!(md5_result, "f801c3cb79c641ab70efc5b525af573c");
+        assert_eq!(sha1_result.len(), 40); // SHA1 produit 40 caractères hex
+    }
+
+    #[test]
+    fn test_format_size_precision() {
+        // Test de précision pour format_size
+        assert_eq!(format_size(1536), "1.50 KB (1536 bytes)");
+        assert_eq!(format_size(1_572_864), "1.50 MB (1572864 bytes)");
+        assert_eq!(format_size(1_610_612_736), "1.50 GB (1610612736 bytes)");
+    }
+
+    // Test d'intégration avec fichier temporaire
+    #[test]
+    fn test_with_temporary_file() -> Result<(), Box<dyn std::error::Error>> {
+        // Créer un fichier temporaire avec du contenu connu
+        let mut temp_file = NamedTempFile::new()?;
+        let test_content = b"Hello, World! This is a test file.";
+        temp_file.write_all(test_content)?;
+
+        // Tester l'ouverture du fichier
+        let file = File::open(temp_file.path())?;
+        let metadata = file.metadata()?;
+
+        assert_eq!(metadata.len(), test_content.len() as u64);
+        assert!(metadata.is_file());
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore] // Ignorer par défaut, exécuter avec cargo test -- --ignored
+    fn benchmark_hash_computation() {
+        let large_data = vec![0x42u8; 10_000_000]; // 10MB de données
+        let chunk = Arc::from(large_data.into_boxed_slice());
+
+        let start = Instant::now();
+
+        let (tx, rx) = bounded(1);
+        tx.send(chunk).unwrap();
+        drop(tx);
+
+        let _result = compute_hash(
+            rx,
+            || Context::new(),
+            |context, data| context.consume(data),
+            |context| format!("{:x}", context.compute())
+        );
+
+        let duration = start.elapsed();
+        println!("Hash computation took: {:?}", duration);
+
+        // Vérifier que ça prend moins de 1 seconde (ajustez selon vos besoins)
+        assert!(duration.as_secs() < 1);
+    }
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
 

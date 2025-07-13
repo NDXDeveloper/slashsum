@@ -4,3 +4,155 @@ Cargo.lock
 .idea/
 *.checksum
 *.snap
+
+
+# =============================================================================
+# RUST / CARGO
+# =============================================================================
+
+# Répertoires de build Rust
+/target/
+**/target/
+
+# Fichiers de lock Cargo (à inclure ou exclure selon votre choix)
+# Cargo.lock  # Décommentez si vous voulez l'ignorer (pas recommandé pour binaires)
+
+# Fichiers de cache Cargo
+**/*.rs.bk
+.cargo/
+
+# =============================================================================
+# SNAPCRAFT
+# =============================================================================
+
+# Fichiers snap générés
+*.snap
+
+# Répertoires de build snapcraft
+/snap/.snapcraft/
+parts/
+stage/
+prime/
+
+# Fichiers de cache snapcraft
+.snapcraft/
+
+# Fichiers de sauvegarde snapcraft
+snap/*.bak
+snap/snapcraft.yaml.bak
+
+# Logs snapcraft
+*.log
+/snap/local/
+
+# =============================================================================
+# DÉVELOPPEMENT
+# =============================================================================
+
+# Fichiers d'éditeur
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Fichiers de configuration locale
+.env
+.env.local
+
+# Fichiers de debug
+debug/
+*.pdb
+
+# =============================================================================
+# SYSTÈME
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+*.tmp
+
+# =============================================================================
+# TESTS ET DONNÉES
+# =============================================================================
+
+# Fichiers de test temporaires
+/tmp/
+test_files/
+*.test
+*.checksum
+
+# Couverture de code
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+
+# =============================================================================
+# BINAIRES ET BUILD
+# =============================================================================
+
+# Binaires compilés (à exclure du Git)
+target/release/slashsum
+target/debug/slashsum
+target/x86_64-pc-windows-gnu/release/slashsum.exe
+target/*/slashsum*
+slashsum
+slashsum.exe
+*.exe
+
+# Artéfacts de build
+dist/
+build/
+out/
+
+# Fichiers de release (si vous voulez les exclure)
+releases/
+artifacts/
+
+# =============================================================================
+# LOGS ET MONITORING
+# =============================================================================
+
+# Logs
+*.log
+logs/
+
+# Profiling
+*.prof
+flamegraph.svg
+
+# =============================================================================
+# DOCUMENTATION GÉNÉRÉE
+# =============================================================================
+
+# Documentation Rust générée
+/doc/
+target/doc/
+
+# =============================================================================
+# CONFIGURATION SPÉCIFIQUE AU PROJET
+# =============================================================================
+
+# Fichiers de configuration de développement local
+config.local.*
+settings.local.*
+
+# Clés et secrets (ne jamais commiter !)
+*.key
+*.pem
+secrets/
+.secrets
+
+# Benchmarks
+benchmarks/results/
+*.bench

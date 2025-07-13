@@ -1,0 +1,500 @@
+ # .github/workflows/build.yml - Avec Snap et DEB pour slashsum
+name: Build Slashsum Multi-Platform
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install build tools
+      run: |
+        cargo install cargo-audit || echo "cargo-audit already installed"
+
+    - name: Build with version injection
+      run: make build
+
+    - name: Test binary
+      run: |
+        echo "=== Binary info ==="
+        ls -la target/release/slashsum
+        file target/release/slashsum
+
+        echo "=== version ==="
+        ./target/release/slashsum --version
+
+        echo "=== Afficher l'aide ===="
+        ./target/release/slashsum --help
+
+        echo "=== Test fonctionnel ==="
+        echo "Hello World" > test.txt
+        ./target/release/slashsum test.txt
+        rm test.txt
+
+    - name: Run tests
+      run: make test
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: slashsum-linux-${{ github.sha }}
+        path: target/release/slashsum
+        retention-days: 30
+
+  # Job pour releases avec binaires + snap + deb + installateurs Windows
+  release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-pc-windows-gnu
+
+    - name: Install cross-compilation tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-mingw-w64-x86-64
+
+    # Build des binaires classiques
+    - name: Build release binaries
+      run: |
+        echo "Building release binaries..."
+
+        # Linux
+        make build
+        cp target/release/slashsum slashsum-linux-amd64
+
+        # Windows (cross-compilation)
+        export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
+        export CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++
+        export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
+        export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+
+        cargo build --release --target x86_64-pc-windows-gnu
+        cp target/x86_64-pc-windows-gnu/release/slashsum.exe slashsum-windows-amd64.exe
+
+        # macOS (nécessite une approche différente, voir job séparé)
+        echo "macOS build sera fait dans un job séparé"
+
+        # Vérifier les binaires créés
+        ls -la slashsum-*
+
+    # Build du package DEB
+    - name: Build DEB package
+      run: |
+        # Installer nfpm
+        wget https://github.com/goreleaser/nfpm/releases/download/v2.43.0/nfpm_2.43.0_amd64.deb
+        sudo dpkg -i nfpm_2.43.0_amd64.deb
+
+        # Extraire la version du tag
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG_NAME#v}  # Supprimer le 'v' du début
+
+        echo "Building DEB package for version: $VERSION"
+
+        # Créer le fichier nfpm.yaml pour slashsum
+        cat > nfpm.yaml << EOF
+        name: "slashsum"
+        arch: "amd64"
+        platform: "linux"
+        version: "${VERSION}"
+        section: "utils"
+        priority: "optional"
+        maintainer: "Nicolas DEOUX <NDXDev@gmail.com>"
+        description: |
+          Calculate multiple checksums simultaneously
+          Slashsum is a fast tool for calculating CRC32, MD5, SHA1, SHA256, and SHA512 checksums
+          of files using parallel processing for optimal performance.
+        vendor: "NDXDev"
+        homepage: "https://github.com/NDXDeveloper/slashsum"
+        license: "MIT"
+        depends:
+          - libc6
+        contents:
+          - src: "./target/release/slashsum"
+            dst: "/usr/bin/slashsum"
+            file_info:
+              mode: 0755
+          - src: "./LICENSE"
+            dst: "/usr/share/doc/slashsum/LICENSE"
+          - src: "./README.md"
+            dst: "/usr/share/doc/slashsum/README.md"
+        scripts:
+          postinstall: |
+            #!/bin/bash
+            echo "slashsum installed successfully!"
+            echo "Run 'slashsum --help' for usage information"
+          preremove: |
+            #!/bin/bash
+            echo "Removing slashsum..."
+        EOF
+
+        # Créer le package DEB
+        nfpm pkg --packager deb --config nfpm.yaml --target slashsum_${TAG_NAME}_amd64.deb
+
+        # Vérifier le package créé
+        ls -la *.deb
+        dpkg --info slashsum_${TAG_NAME}_amd64.deb
+
+        rm nfpm_2.43.0_amd64.deb
+
+    # Build du Snap
+    - name: Build Snap
+      uses: snapcore/action-build@v1
+      id: build-snap
+
+    - name: Rename snap file
+      run: |
+        # Renommer le snap avec le nom du tag
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        mv *.snap slashsum_${TAG_NAME}_amd64.snap
+        ls -la *.snap
+
+    # Build des installateurs Windows avec NSIS
+    - name: Build Windows Installers
+      run: |
+        echo "Installing NSIS..."
+        sudo apt-get update
+        sudo apt-get install -y nsis
+
+        echo "Building Windows installers..."
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG_NAME#v}
+
+        # Créer le dossier nsis s'il n'existe pas
+        mkdir -p nsis
+
+        # Créer le script NSIS pour l'installation utilisateur
+        cat > nsis/installer_user.nsi << 'EOF'
+        !define APPNAME "Slashsum"
+        !define COMPANYNAME "NDXDev"
+        !define DESCRIPTION "Calculate multiple checksums simultaneously"
+        !define VERSIONMAJOR 1
+        !define VERSIONMINOR 0
+        !define VERSIONBUILD 0
+        !define HELPURL "https://github.com/NDXDeveloper/slashsum"
+        !define UPDATEURL "https://github.com/NDXDeveloper/slashsum/releases"
+        !define ABOUTURL "https://github.com/NDXDeveloper/slashsum"
+        !define INSTALLSIZE 2048
+
+        RequestExecutionLevel user
+        InstallDir "$LOCALAPPDATA\${APPNAME}"
+        Name "${APPNAME}"
+        Icon "icon.ico"
+        outFile "slashsum-setup-user.exe"
+
+        page directory
+        page instfiles
+
+        !macro VerifyUserIsNotAdmin
+        UserInfo::GetAccountType
+        pop $0
+        ${If} $0 == "admin"
+            messageBox mb_iconstop "This installer is for user-level installation. Please use the admin installer for system-wide installation."
+            setErrorLevel 740
+            quit
+        ${EndIf}
+        !macroend
+
+        function .onInit
+            setShellVarContext current
+            !insertmacro VerifyUserIsNotAdmin
+        functionEnd
+
+        section "install"
+            setOutPath $INSTDIR
+            file "slashsum-windows-amd64.exe"
+            rename "slashsum-windows-amd64.exe" "slashsum.exe"
+
+            writeUninstaller "$INSTDIR\uninstall.exe"
+
+            # Add to PATH
+            EnVar::SetHKCU
+            EnVar::AddValue "PATH" "$INSTDIR"
+
+            # Registry for Add/Remove Programs
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "$\"$INSTDIR$\""
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$\"$INSTDIR\icon.ico$\""
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "${COMPANYNAME}"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "HelpLink" "${HELPURL}"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "URLUpdateInfo" "${UPDATEURL}"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "URLInfoAbout" "${ABOUTURL}"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
+            WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "VersionMajor" ${VERSIONMAJOR}
+            WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "VersionMinor" ${VERSIONMINOR}
+            WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
+            WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair" 1
+            WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "EstimatedSize" ${INSTALLSIZE}
+        sectionEnd
+
+        section "uninstall"
+            delete "$INSTDIR\slashsum.exe"
+            delete "$INSTDIR\uninstall.exe"
+            rmDir "$INSTDIR"
+
+            # Remove from PATH
+            EnVar::SetHKCU
+            EnVar::DeleteValue "PATH" "$INSTDIR"
+
+            DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
+        sectionEnd
+        EOF
+
+        # Créer le script NSIS pour l'installation admin
+        cat > nsis/installer_admin.nsi << 'EOF'
+        !define APPNAME "Slashsum"
+        !define COMPANYNAME "NDXDev"
+        !define DESCRIPTION "Calculate multiple checksums simultaneously"
+        !define VERSIONMAJOR 1
+        !define VERSIONMINOR 0
+        !define VERSIONBUILD 0
+        !define HELPURL "https://github.com/NDXDeveloper/slashsum"
+        !define UPDATEURL "https://github.com/NDXDeveloper/slashsum/releases"
+        !define ABOUTURL "https://github.com/NDXDeveloper/slashsum"
+        !define INSTALLSIZE 2048
+
+        RequestExecutionLevel admin
+        InstallDir "$PROGRAMFILES64\${APPNAME}"
+        Name "${APPNAME}"
+        Icon "icon.ico"
+        outFile "slashsum-setup-admin.exe"
+
+        page directory
+        page instfiles
+
+        function .onInit
+            setShellVarContext all
+        functionEnd
+
+        section "install"
+            setOutPath $INSTDIR
+            file "slashsum-windows-amd64.exe"
+            rename "slashsum-windows-amd64.exe" "slashsum.exe"
+
+            writeUninstaller "$INSTDIR\uninstall.exe"
+
+            # Add to system PATH
+            EnVar::SetHKLM
+            EnVar::AddValue "PATH" "$INSTDIR"
+
+            # Registry for Add/Remove Programs
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "$\"$INSTDIR$\""
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$\"$INSTDIR\icon.ico$\""
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "${COMPANYNAME}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "HelpLink" "${HELPURL}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "URLUpdateInfo" "${UPDATEURL}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "URLInfoAbout" "${ABOUTURL}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "VersionMajor" ${VERSIONMAJOR}
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "VersionMinor" ${VERSIONMINOR}
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair" 1
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "EstimatedSize" ${INSTALLSIZE}
+        sectionEnd
+
+        section "uninstall"
+            delete "$INSTDIR\slashsum.exe"
+            delete "$INSTDIR\uninstall.exe"
+            rmDir "$INSTDIR"
+
+            # Remove from system PATH
+            EnVar::SetHKLM
+            EnVar::DeleteValue "PATH" "$INSTDIR"
+
+            DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
+        sectionEnd
+        EOF
+
+        # Installer le plugin EnVar pour NSIS
+        wget http://nsis.sourceforge.net/mediawiki/images/7/7f/EnVar_plugin.zip
+        unzip -o EnVar_plugin.zip
+        sudo cp Plugins/x86-unicode/EnVar.dll /usr/share/nsis/Plugins/x86-unicode/
+        sudo cp Plugins/x86-ansi/EnVar.dll /usr/share/nsis/Plugins/x86-ansi/
+
+        # Copier le binaire Windows dans le dossier nsis
+        cp slashsum-windows-amd64.exe nsis/
+
+        # Se placer dans le dossier nsis
+        cd nsis
+
+        # Compiler les installateurs
+        echo "Compiling user installer..."
+        makensis installer_user.nsi
+
+        echo "Compiling admin installer..."
+        makensis installer_admin.nsi
+
+        # Renommer les installateurs générés avec la version
+        mv slashsum-setup-user.exe slashsum-setup-user-${TAG_NAME}.exe
+        mv slashsum-setup-admin.exe slashsum-setup-admin-${TAG_NAME}.exe
+
+        # Déplacer les installateurs vers la racine
+        mv *.exe ../
+
+        # Retourner à la racine et vérifier
+        cd ..
+        ls -la *.exe
+        file *.exe
+
+    # Job séparé pour macOS (nécessite macOS runner)
+  build-macos:
+    runs-on: macos-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build macOS binary
+      run: |
+        make build
+        cp target/release/slashsum slashsum-darwin-amd64
+
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: slashsum-macos
+        path: slashsum-darwin-amd64
+
+    # Finaliser la release
+  finalize-release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [release, build-macos]
+
+    steps:
+    - name: Download macOS artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: slashsum-macos
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          slashsum-linux-amd64
+          slashsum-windows-amd64.exe
+          slashsum-darwin-amd64
+          *.snap
+          *.deb
+          *.exe
+        generate_release_notes: true
+        body: |
+          ## 🚀 Slashsum ${{ github.ref_name }}
+
+          Calculate multiple checksums simultaneously with parallel processing.
+
+          ### 📦 Téléchargements
+
+          #### Binaires classiques
+          - **Linux**: `slashsum-linux-amd64`
+          - **macOS**: `slashsum-darwin-amd64`
+          - **Windows**: `slashsum-windows-amd64.exe`
+
+          #### Installateurs Windows 🆕
+          - **Installation utilisateur** (sans admin): `slashsum-setup-user-${{ github.ref_name }}.exe`
+          - **Installation système** (admin requis): `slashsum-setup-admin-${{ github.ref_name }}.exe`
+
+          #### Package Snap (Linux)
+          - **Snap**: `slashsum_${{ github.ref_name }}_amd64.snap`
+
+          #### Package DEB (Ubuntu/Debian)
+          - **DEB**: `slashsum_${{ github.ref_name }}_amd64.deb`
+
+          ### 🛠️ Installation
+
+          #### Linux DEB (Ubuntu/Debian)
+          ```bash
+          wget https://github.com/NDXDeveloper/slashsum/releases/download/${{ github.ref_name }}/slashsum_${{ github.ref_name }}_amd64.deb
+          sudo apt install ./slashsum_${{ github.ref_name }}_amd64.deb
+          slashsum --version
+          ```
+
+          #### Linux Snap
+          ```bash
+          wget https://github.com/NDXDeveloper/slashsum/releases/download/${{ github.ref_name }}/slashsum_${{ github.ref_name }}_amd64.snap
+          sudo snap install --dangerous slashsum_${{ github.ref_name }}_amd64.snap
+          slashsum --version
+          ```
+
+          #### Windows
+          - **Utilisateur**: Double-clic sur `slashsum-setup-user-${{ github.ref_name }}.exe`
+          - **Admin**: Clic-droit → "Exécuter en tant qu'administrateur" sur `slashsum-setup-admin-${{ github.ref_name }}.exe`
+
+          #### macOS/Linux binaire
+          ```bash
+          chmod +x slashsum-darwin-amd64  # ou slashsum-linux-amd64
+          sudo mv slashsum-darwin-amd64 /usr/local/bin/slashsum
+          slashsum --version
+          ```
+
+          ### ✨ Fonctionnalités
+          - **Algorithmes supportés**: CRC32, MD5, SHA1, SHA256, SHA512
+          - **Traitement parallèle** pour performance optimale
+          - **Lecture par chunks** pour les gros fichiers
+          - **Option --save** pour sauvegarder les résultats
+
+          ### 🚀 Utilisation
+          ```bash
+          # Calculer les checksums d'un fichier
+          slashsum file.txt
+
+          # Sauvegarder les résultats
+          slashsum file.txt --save
+
+          # Afficher l'aide
+          slashsum --help
+          ```
+
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

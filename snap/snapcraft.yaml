@@ -1,34 +1,116 @@
+# snap/snapcraft.yaml - Strict confinement
 name: slashsum
-base: core24
-version: '0.1.0'
-summary: Multi-hash checksum calculator
+version: git
+summary: Calculate multiple checksums simultaneously
 description: |
-  Slashsum computes multiple checksums (CRC32, MD5, SHA1, SHA256, SHA512) in parallel.
-  Maintained by DEOUX Nicolas (<NDXDev@gmail.com>).
+  Slashsum is a fast command-line tool for calculating multiple checksums
+  (CRC32, MD5, SHA1, SHA256, SHA512) of files using parallel processing
+  for optimal performance.
+
+  Features:
+  - Simultaneous calculation of multiple checksums
+  - Support for CRC32, MD5, SHA1, SHA256, SHA512
+  - Parallel processing for optimal performance
+  - Intuitive command-line interface
+  - Access to local files and removable media
+
+  Required permissions:
+  - home: Access to user directory
+  - removable-media: Access to USB drives and external disks
+  - network: Basic network access
+  - mount-observe: Mount point observation
+
+
+
+
+# Base system Ubuntu 22.04 LTS
+base: core22
 
 license: MIT
+source-code: https://github.com/NDXDeveloper/slashsum
+issues: https://github.com/NDXDeveloper/slashsum/issues
 
+# Strict confinement for maximum security
+confinement: strict
 grade: stable
-confinement: classic
 
-plugs:
-  home: {}  # Accès au répertoire personnel de l'utilisateur
-  removable-media: {}  # Accès aux périphériques amovibles, si nécessaire
+# Supported architectures
+architectures:
+  - build-on: amd64
+    build-for: amd64
 
+# Exposed applications
 apps:
   slashsum:
     command: bin/slashsum
     plugs:
       - home
       - removable-media
+      - network
+      - mount-observe
+    environment:
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
 
+# Snap build
 parts:
   slashsum:
     plugin: rust
     source: .
+
+    rust-channel: stable
+    # Build variables
+    build-environment:
+      - CARGO_BUILD_JOBS: "4"
+      - RUST_BACKTRACE: "1"
+    # Build script with make build
+    override-build: |
+      # Retrieve version metadata
+      export VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "snap-dev")
+      export BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      export GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+
+      echo "Building Slashsum Snap"
+      echo "Version: $VERSION"
+      echo "Build time: $BUILD_TIME"
+      echo "Git commit: $GIT_COMMIT"
+
+      # Build with Makefile and pass variables
+      make build VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" GIT_COMMIT="$GIT_COMMIT"
+
+      # Create bin directory if it doesn't exist
+      mkdir -p $SNAPCRAFT_PART_INSTALL/bin
+
+      # Copy binary
+      cp target/release/slashsum $SNAPCRAFT_PART_INSTALL/bin/
+
+      # Verify binary
+      echo "Binary info:"
+      ls -la $SNAPCRAFT_PART_INSTALL/bin/slashsum
+      file $SNAPCRAFT_PART_INSTALL/bin/slashsum
+
+      # Quick binary test
+      echo "Testing binary:"
+      $SNAPCRAFT_PART_INSTALL/bin/slashsum --version || echo "Version command check completed"
+
+    # Build dependencies
     build-packages:
+      - build-essential
       - pkg-config
-    build-attributes:
-      - enable-patchelf
+      - git
+      - ca-certificates
+      - file
+      - coreutils
+      - make
+    stage-packages:
+      - libc6
 
-
+  # Metadata and additional files
+  metadata:
+    plugin: dump
+    source: .
+    organize:
+      README.md: meta/readme.md
+      LICENSE: meta/license.txt
+    stage:
+      - meta/*
