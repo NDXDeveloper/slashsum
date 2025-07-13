@@ -176,7 +176,7 @@ jobs:
         RequestExecutionLevel user
 
         ; Métadonnées de l'installateur
-        VIProductVersion "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.${PATCH}"
+        VIProductVersion "$MAJOR.$MINOR.$BUILD.$PATCH"
         VIAddVersionKey "ProductName" "${APPNAME}"
         VIAddVersionKey "CompanyName" "${COMPANYNAME}"
         VIAddVersionKey "FileDescription" "${DESCRIPTION}"
@@ -320,7 +320,7 @@ jobs:
         RequestExecutionLevel admin
 
         ; Métadonnées de l'installateur
-        VIProductVersion "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.${PATCH}"
+        VIProductVersion "$MAJOR.$MINOR.$BUILD.$PATCH"
         VIAddVersionKey "ProductName" "${APPNAME}"
         VIAddVersionKey "CompanyName" "${COMPANYNAME}"
         VIAddVersionKey "FileDescription" "${DESCRIPTION}"
