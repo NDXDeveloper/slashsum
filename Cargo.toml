@@ -11,3 +11,6 @@ crc = "3.0.1"  # Ajout pour CRC32
 crossbeam-channel = "0.5.8"  # Pour la communication inter-threads
 tempfile = "3.8"
 
+
+[build-dependencies]
+winresource = "0.1"

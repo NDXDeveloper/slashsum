@@ -117,6 +117,314 @@ jobs:
         name: slashsum-windows
         path: slashsum-windows-amd64.exe
 
+# Build Windows NSIS Installers (User + Admin)
+  build-windows-installer:
+    runs-on: ubuntu-latest
+    needs: build-windows
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download Windows binary
+      uses: actions/download-artifact@v4
+      with:
+        name: slashsum-windows
+
+    - name: Install NSIS
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y nsis nsis-pluginapi
+
+    - name: Create NSIS user installer script
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG_NAME#v}
+
+        # Extraire les composants de version (ex: 0.2.1 -> 0, 2, 1)
+        IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+        MAJOR=${VERSION_PARTS[0]:-0}
+        MINOR=${VERSION_PARTS[1]:-0}
+        BUILD=${VERSION_PARTS[2]:-0}
+
+        echo "Building USER installer for version: $VERSION (Major: $MAJOR, Minor: $MINOR, Build: $BUILD)"
+
+        cat > installer_user.nsi << EOF
+        ; Slashsum Installer - Version minimale sans macros
+        ; Installation dans le profil utilisateur avec PATH utilisateur
+
+        !define APPNAME "Slashsum"
+        !define COMPANYNAME "NDXDeveloper"
+        !define DESCRIPTION "Calculate multiple checksums simultaneously"
+        !define VERSIONMAJOR $MAJOR
+        !define VERSIONMINOR $MINOR
+        !define VERSIONBUILD $BUILD
+        !define VERSION "$VERSION"
+
+        ; Configuration de l'installateur
+        Name "${APPNAME}"
+        OutFile "slashsum-setup-user.exe"
+
+        ; Installation dans le profil utilisateur (pas besoin d'admin)
+        InstallDir "$LOCALAPPDATA\${COMPANYNAME}\${APPNAME}"
+
+        ; Pas besoin de droits admin
+        RequestExecutionLevel user
+
+        ; Métadonnées de l'installateur
+        VIProductVersion "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.0"
+        VIAddVersionKey "ProductName" "${APPNAME}"
+        VIAddVersionKey "CompanyName" "${COMPANYNAME}"
+        VIAddVersionKey "FileDescription" "${DESCRIPTION}"
+        VIAddVersionKey "FileVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
+        VIAddVersionKey "ProductVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
+        VIAddVersionKey "LegalCopyright" "© ${COMPANYNAME}"
+
+        ; Pages de l'installateur
+        Page directory
+        Page instfiles
+
+        ; Section d'installation principal
+        Section "install"
+            ; Créer le répertoire d'installation
+            CreateDirectory "$INSTDIR"
+
+            ; Copier les fichiers
+            SetOutPath "$INSTDIR"
+            File "slashsum-windows-amd64.exe"
+            File /oname=slashsum.exe "slashsum-windows-amd64.exe"
+
+            ; Ajouter au PATH utilisateur - méthode simple
+            DetailPrint "Configuring user PATH..."
+            ReadRegStr $0 HKCU "Environment" "PATH"
+
+            ; Si PATH est vide, ajouter juste notre chemin
+            StrCmp $0 "" 0 +3
+            WriteRegStr HKCU "Environment" "PATH" "$INSTDIR"
+            Goto PathDone
+
+            ; Sinon, ajouter à la fin avec un point-virgule
+            WriteRegStr HKCU "Environment" "PATH" "$0;$INSTDIR"
+
+            PathDone:
+            ; Notifier Windows du changement
+            SendMessage 0xFFFF 0x001A 0 "STR:Environment" /TIMEOUT=5000
+            DetailPrint "User PATH updated."
+
+            ; Créer l'entrée de désinstallation dans le registre utilisateur
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "$INSTDIR\uninstall.exe"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "${COMPANYNAME}"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "$INSTDIR"
+            WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$INSTDIR\slashsum.exe"
+            WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
+            WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair" 1
+            WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "EstimatedSize" 3072
+
+            ; Créer le désinstallateur
+            WriteUninstaller "$INSTDIR\uninstall.exe"
+
+            ; Créer un raccourci sur le bureau (optionnel)
+            ;MessageBox MB_YESNO "Créer un raccourci sur le bureau ?" IDNO +2
+            ;CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\slashsum.exe"
+
+            ; Créer des raccourcis dans le menu démarrer
+            ;c'est une application console donc pas besoin de ces raccourcis
+            ;CreateDirectory "$SMPROGRAMS\${APPNAME}"
+            ;CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\slashsum.exe"
+            ;CreateShortcut "$SMPROGRAMS\${APPNAME}\Désinstaller ${APPNAME}.lnk" "$INSTDIR\uninstall.exe"
+
+            DetailPrint "Installation complete!"
+
+            ; Message de fin
+            MessageBox MB_YESNO|MB_ICONQUESTION "Installation complete! $\n$\nOpen a terminal to test 'slashsum'?$\n$\nNote: Restart your terminal if necessary." IDNO +2
+            ExecShell "open" "cmd" "/k set PATH=%PATH%;$INSTDIR && echo Slashsum installed ! && slashsum --help"
+        SectionEnd
+
+        ; Section de désinstallation
+        Section "uninstall"
+            ; Supprimer du PATH utilisateur - méthode simple
+            DetailPrint "Cleaning up the user PATH..."
+            ReadRegStr $0 HKCU "Environment" "PATH"
+
+            ; Remplacer les occurrences de notre chemin
+            ; Note: Cette méthode simple peut laisser des point-virgules orphelins
+            ; mais c'est acceptable pour un installateur basique
+
+            ; Supprimer les fichiers
+            Delete "$INSTDIR\slashsum.exe"
+            Delete "$INSTDIR\slashsum-windows-amd64.exe"
+            Delete "$INSTDIR\uninstall.exe"
+
+            ; Supprimer les raccourcis
+            ;Delete "$DESKTOP\${APPNAME}.lnk"
+            ;Delete "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk"
+            ;Delete "$SMPROGRAMS\${APPNAME}\Désinstaller ${APPNAME}.lnk"
+            RMDir "$SMPROGRAMS\${APPNAME}"
+
+            ; Supprimer le répertoire d'installation
+            RMDir "$INSTDIR"
+
+            ; Supprimer l'entrée de désinstallation
+            DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
+
+            DetailPrint "Uninstallation complete! "
+
+            MessageBox MB_ICONINFORMATION "Uninstallation complete! $\n$\nNote: You can restart your terminal to clean up the PATH."
+        SectionEnd
+        EOF
+
+    - name: Create NSIS admin installer script
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG_NAME#v}
+
+        # Extraire les composants de version
+        IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+        MAJOR=${VERSION_PARTS[0]:-0}
+        MINOR=${VERSION_PARTS[1]:-0}
+        BUILD=${VERSION_PARTS[2]:-0}
+
+        echo "Building ADMIN installer for version: $VERSION (Major: $MAJOR, Minor: $MINOR, Build: $BUILD)"
+
+        cat > installer_admin.nsi << EOF
+        ; Slashsum Installer - Version Admin ultra-simple
+        ; Installation système avec droits administrateur
+
+        !define APPNAME "Slashsum CLI"
+        !define COMPANYNAME "NDXDeveloper"
+        !define DESCRIPTION "Calculate multiple checksums simultaneously"
+        !define VERSIONMAJOR $MAJOR
+        !define VERSIONMINOR $MINOR
+        !define VERSIONBUILD $BUILD
+        !define VERSION "$VERSION"
+        !define HELPURL "https://github.com/NDXDeveloper/slashsum"
+        !define UPDATEURL "https://github.com/NDXDeveloper/slashsum/releases"
+        !define ABOUTURL "https://github.com/NDXDeveloper/slashsum"
+
+        ; Configuration de l'installateur
+        Name "${APPNAME}"
+        OutFile "slashsum-setup-admin.exe"
+
+        ; Installation dans Program Files (nécessite admin)
+        InstallDir "$PROGRAMFILES64\${COMPANYNAME}\${APPNAME}"
+
+        ; Droits admin requis
+        RequestExecutionLevel admin
+
+        ; Métadonnées de l'installateur
+        VIProductVersion "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.0"
+        VIAddVersionKey "ProductName" "${APPNAME}"
+        VIAddVersionKey "CompanyName" "${COMPANYNAME}"
+        VIAddVersionKey "FileDescription" "${DESCRIPTION}"
+        VIAddVersionKey "FileVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
+        VIAddVersionKey "ProductVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
+        VIAddVersionKey "LegalCopyright" "© ${COMPANYNAME}"
+
+        ; Pages de l'installateur
+        Page directory
+        Page instfiles
+
+        ; Section d'installation principal
+        Section "install"
+            ; Créer le répertoire d'installation
+            CreateDirectory "$INSTDIR"
+
+            ; Copier les fichiers
+            SetOutPath "$INSTDIR"
+            File "slashsum-windows-amd64.exe"
+            File /oname=slashsum.exe "slashsum-windows-amd64.exe"
+
+            ; Ajouter au PATH système - méthode brutale mais qui marche
+            DetailPrint "Configuring system PATH..."
+            ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH"
+
+            ; Ajouter notre chemin (même s'il existe déjà, pas grave)
+            StrCmp $0 "" 0 +3
+            WriteRegStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH" "$INSTDIR"
+            Goto PathDone
+            WriteRegStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH" "$0;$INSTDIR"
+
+            PathDone:
+            ; Notifier Windows du changement
+            SendMessage 0xFFFF 0x001A 0 "STR:Environment" /TIMEOUT=5000
+            DetailPrint "System PATH updated."
+
+            ; Créer l'entrée de désinstallation
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "$INSTDIR\uninstall.exe"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "${COMPANYNAME}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "$INSTDIR"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$INSTDIR\slashsum.exe"
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair" 1
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "EstimatedSize" 3072
+
+            ; Créer le désinstallateur
+            WriteUninstaller "$INSTDIR\uninstall.exe"
+
+            DetailPrint "Installation complete!"
+
+            ; Message de fin
+            MessageBox MB_YESNO|MB_ICONQUESTION "Installation terminée !$\n$\nOpen a terminal to test 'slashsum'?$\n$\nNote: Restart your terminal if necessary." IDNO +2
+            ExecShell "open" "cmd" "/k set PATH=%PATH%;$INSTDIR && echo Slashsum CLI installed ! && slashsum --help"
+        SectionEnd
+
+        ; Section de désinstallation
+        Section "uninstall"
+            ; Note: On ne nettoie pas le PATH système pour éviter les erreurs
+            ; L'utilisateur peut le faire manuellement si nécessaire
+            DetailPrint "Cleaning up files..."
+
+            ; Supprimer les fichiers
+            Delete "$INSTDIR\slashsum.exe"
+            Delete "$INSTDIR\slashsum-windows-amd64.exe"
+            Delete "$INSTDIR\uninstall.exe"
+
+            ; Supprimer le répertoire d'installation
+            RMDir "$INSTDIR"
+
+            ; Supprimer l'entrée de désinstallation
+            DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
+
+            DetailPrint "Uninstallation complete!"
+            MessageBox MB_ICONINFORMATION "Uninstallation complete!$\n$\nNote: You can restart your terminal to clean up the PATH."
+        SectionEnd
+
+        EOF
+
+    - name: Build NSIS installers
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+
+        # Compiler l'installeur utilisateur
+        echo "Building user installer..."
+        makensis installer_user.nsi
+
+        # Compiler l'installeur admin
+        echo "Building admin installer..."
+        makensis installer_admin.nsi
+
+        # Renommer avec la version
+        mv slashsum-setup-user.exe slashsum-setup-user-${TAG_NAME}.exe
+        mv slashsum-setup-admin.exe slashsum-setup-admin-${TAG_NAME}.exe
+
+        # Vérifier les fichiers créés
+        echo "Created installers:"
+        ls -la *.exe
+        file slashsum-setup-user-${TAG_NAME}.exe
+        file slashsum-setup-admin-${TAG_NAME}.exe
+
+    - name: Upload NSIS installers
+      uses: actions/upload-artifact@v4
+      with:
+        name: slashsum-installers
+        path: slashsum-setup-*.exe
+
   # Build macOS
   build-macos:
     runs-on: macos-latest
@@ -228,6 +536,7 @@ jobs:
 
         nfpm pkg --packager deb --config nfpm.yaml --target slashsum_${TAG_NAME}_amd64.deb
         ls -la *.deb
+        rm nfpm_2.43.0_amd64.deb
 
     - name: Upload DEB artifact
       uses: actions/upload-artifact@v4
@@ -235,11 +544,11 @@ jobs:
         name: slashsum-deb
         path: slashsum_*.deb
 
-  # Release finale (seulement pour les tags)
+  # Release finale (seulement pour les tags)  # Release finale (seulement pour les tags)
   release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-linux, build-windows, build-macos, build-snap, build-deb]
+    needs: [build-linux, build-windows, build-windows-installer, build-macos, build-snap, build-deb]
     permissions:
       contents: write
     steps:
@@ -251,20 +560,28 @@ jobs:
 
     - name: Prepare release files
       run: |
-        # Organiser tous les fichiers
+    # Organiser tous les fichiers
+	echo "=== All downloaded artifacts ==="
         find . -name "slashsum*" -type f | head -20
 
         # Créer le dossier de release
         mkdir -p release
 
         # Copier tous les binaires et packages
+	echo "=== Copying release files ==="
         cp slashsum-linux/slashsum-linux-amd64 release/ 2>/dev/null || true
         cp slashsum-windows/slashsum-windows-amd64.exe release/ 2>/dev/null || true
+        cp slashsum-installers/slashsum-setup-user-*.exe release/ 2>/dev/null || echo "No User installer"
+        cp slashsum-installers/slashsum-setup-admin-*.exe release/ 2>/dev/null || echo "No Admin installer"
         cp slashsum-macos/slashsum-darwin-amd64 release/ 2>/dev/null || true
         cp slashsum-snap/*.snap release/ 2>/dev/null || true
         cp slashsum-deb/*.deb release/ 2>/dev/null || true
 
+	echo "=== Final release files ==="
         ls -la release/
+
+        echo "=== File details ==="
+        file release/* 2>/dev/null || echo "No files to analyze"
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
@@ -278,36 +595,94 @@ jobs:
 
           ### 📦 Downloads
 
-          - **Linux**: `slashsum-linux-amd64`
-          - **Windows**: `slashsum-windows-amd64.exe`
-          - **macOS**: `slashsum-darwin-amd64`
-          - **Snap**: `slashsum_${{ github.ref_name }}_amd64.snap`
-          - **DEB**: `slashsum_${{ github.ref_name }}_amd64.deb`
+          #### Binaries
+          - **🐧 Linux**: `slashsum-linux-amd64`
+          - **🪟 Windows**: `slashsum-windows-amd64.exe`
+          - **🍎 macOS**: `slashsum-darwin-amd64`
+
+          #### Windows Installers
+          - **👤 User Installer**: `slashsum-setup-user-${{ github.ref_name }}.exe` (no admin rights required)
+          - **🔐 Admin Installer**: `slashsum-setup-admin-${{ github.ref_name }}.exe` (system-wide installation)
+
+          #### Linux Packages
+          - **📦 Snap**: `slashsum_${{ github.ref_name }}_amd64.snap`
+          - **📋 DEB**: `slashsum_${{ github.ref_name }}_amd64.deb`
 
           ### 🛠️ Installation
+
+          #### Windows (Recommended - Installers)
+
+          **👤 User installation (no admin required):**
+          ```bash
+          # Download and double-click to install
+          # Installs to %LOCALAPPDATA%\Slashsum
+          # Available only for current user
+          ```
+
+          **🔐 System installation (admin required):**
+          ```bash
+          # Download and right-click → "Run as administrator"
+          # Installs to C:\Program Files\Slashsum
+          # Available for all system users
+          ```
 
           #### Ubuntu/Debian (DEB)
           ```bash
           wget https://github.com/NDXDeveloper/slashsum/releases/download/${{ github.ref_name }}/slashsum_${{ github.ref_name }}_amd64.deb
           sudo apt install ./slashsum_${{ github.ref_name }}_amd64.deb
+          slashsum --version
           ```
 
           #### Linux (Snap)
           ```bash
+          wget https://github.com/NDXDeveloper/slashsum/releases/download/${{ github.ref_name }}/slashsum_${{ github.ref_name }}_amd64.snap
           sudo snap install --dangerous slashsum_${{ github.ref_name }}_amd64.snap
+          slashsum --version
           ```
 
-          #### Manual installation
+          #### Manual installation (all platforms)
           ```bash
-          # Download binary for your platform
+          # Linux/macOS
           chmod +x slashsum-*
           sudo mv slashsum-* /usr/local/bin/slashsum
+
+          # Windows (PowerShell as admin)
+          # Create C:\Tools if needed, then:
+          # Move-Item slashsum-windows-amd64.exe C:\Tools\slashsum.exe
+          # Add C:\Tools to system PATH
           ```
 
           ### ✨ Features
-          - Algorithms: CRC32, MD5, SHA1, SHA256, SHA512
-          - Parallel processing for optimal performance
-          - Chunked reading for large files
-          - Save results with `--save` option
+          - **Algorithms**: CRC32, MD5, SHA1, SHA256, SHA512
+          - **Parallel processing** for optimal performance
+          - **Chunked reading** for large files
+          - **Save results** with `--save` option
+          - **Cross-platform**: Linux, Windows, macOS
+
+          ### 🚀 Usage
+          ```bash
+          # Calculate checksums
+          slashsum file.txt
+
+          # Save to .checksum file
+          slashsum file.txt --save
+
+          # Show help
+          slashsum --help
+
+          # Show version
+          slashsum --version
+          ```
+
+          ### 🔧 Technical Details
+          - **Binary size**: ~650KB
+          - **Dependencies**: None (static binary)
+          - **License**: MIT
+          - **Architecture**: x86_64 only
+
+          ### 📋 Checksums
+          All binaries are built from the same source code with version `${{ github.ref_name }}`.
+          You can verify integrity by comparing checksums between platforms.
+
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
