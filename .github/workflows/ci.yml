@@ -73,13 +73,120 @@ jobs:
     - name: Build Linux binary
       run: |
         make build
-        cp target/release/slashsum slashsum-linux-amd64
+
+    - name: Create portable package
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+
+        # Create package directory
+        mkdir -p slashsum-linux-amd64-portable
+
+        # Copy binary
+        cp target/release/slashsum slashsum-linux-amd64-portable/
+
+        # Copy documentation
+        cp LICENSE slashsum-linux-amd64-portable/
+        cp README.md slashsum-linux-amd64-portable/
+
+        # Create install script
+        cat > slashsum-linux-amd64-portable/install.sh << 'EOF'
+        #!/bin/bash
+        # Slashsum Installation Script for Linux
+
+        set -e
+
+        INSTALL_DIR="/usr/local/bin"
+        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+        echo "🔍 Slashsum Installer for Linux"
+        echo "================================"
+        echo ""
+
+        # Check if running with sudo for system-wide install
+        if [ "$EUID" -ne 0 ]; then
+            echo "⚠️  Not running as root. Will try to install to $INSTALL_DIR"
+            echo "   If this fails, please run: sudo ./install.sh"
+            echo ""
+        fi
+
+        # Check if binary exists
+        if [ ! -f "$SCRIPT_DIR/slashsum" ]; then
+            echo "❌ Error: slashsum binary not found in $SCRIPT_DIR"
+            exit 1
+        fi
+
+        # Make binary executable
+        chmod +x "$SCRIPT_DIR/slashsum"
+
+        # Create install directory if needed
+        if [ ! -d "$INSTALL_DIR" ]; then
+            echo "📁 Creating $INSTALL_DIR..."
+            mkdir -p "$INSTALL_DIR"
+        fi
+
+        # Copy binary
+        echo "📦 Installing slashsum to $INSTALL_DIR..."
+        cp "$SCRIPT_DIR/slashsum" "$INSTALL_DIR/slashsum"
+        chmod +x "$INSTALL_DIR/slashsum"
+
+        # Verify installation
+        if command -v slashsum &> /dev/null; then
+            echo ""
+            echo "✅ Installation successful!"
+            echo ""
+            slashsum --version
+            echo ""
+            echo "🚀 You can now use 'slashsum' from anywhere."
+            echo "   Try: slashsum --help"
+        else
+            echo ""
+            echo "⚠️  Binary installed but not in PATH."
+            echo "   Add $INSTALL_DIR to your PATH or run:"
+            echo "   $INSTALL_DIR/slashsum --help"
+        fi
+        EOF
+        chmod +x slashsum-linux-amd64-portable/install.sh
+
+        # Create uninstall script
+        cat > slashsum-linux-amd64-portable/uninstall.sh << 'EOF'
+        #!/bin/bash
+        # Slashsum Uninstallation Script for Linux
+
+        set -e
+
+        INSTALL_DIR="/usr/local/bin"
+
+        echo "🗑️  Slashsum Uninstaller for Linux"
+        echo "=================================="
+        echo ""
+
+        if [ "$EUID" -ne 0 ]; then
+            echo "⚠️  Not running as root. Will try to uninstall from $INSTALL_DIR"
+            echo "   If this fails, please run: sudo ./uninstall.sh"
+            echo ""
+        fi
+
+        if [ -f "$INSTALL_DIR/slashsum" ]; then
+            rm "$INSTALL_DIR/slashsum"
+            echo "✅ Slashsum has been uninstalled successfully."
+        else
+            echo "⚠️  Slashsum is not installed in $INSTALL_DIR"
+        fi
+        EOF
+        chmod +x slashsum-linux-amd64-portable/uninstall.sh
+
+        # Create the archive
+        tar -czvf slashsum-linux-amd64-portable.tar.gz slashsum-linux-amd64-portable/
+
+        # Show contents
+        echo "=== Package contents ==="
+        tar -tzvf slashsum-linux-amd64-portable.tar.gz
 
     - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
       with:
         name: slashsum-linux
-        path: slashsum-linux-amd64
+        path: slashsum-linux-amd64-portable.tar.gz
 
   # Build Windows
   build-windows:
@@ -446,13 +553,120 @@ jobs:
     - name: Build macOS binary
       run: |
         make build
-        cp target/release/slashsum slashsum-darwin-amd64
+
+    - name: Create portable package
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+
+        # Create package directory
+        mkdir -p slashsum-darwin-amd64-portable
+
+        # Copy binary
+        cp target/release/slashsum slashsum-darwin-amd64-portable/
+
+        # Copy documentation
+        cp LICENSE slashsum-darwin-amd64-portable/
+        cp README.md slashsum-darwin-amd64-portable/
+
+        # Create install script
+        cat > slashsum-darwin-amd64-portable/install.sh << 'EOF'
+        #!/bin/bash
+        # Slashsum Installation Script for macOS
+
+        set -e
+
+        INSTALL_DIR="/usr/local/bin"
+        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+        echo "🔍 Slashsum Installer for macOS"
+        echo "================================"
+        echo ""
+
+        # Check if running with sudo for system-wide install
+        if [ "$EUID" -ne 0 ]; then
+            echo "⚠️  Not running as root. Will try to install to $INSTALL_DIR"
+            echo "   If this fails, please run: sudo ./install.sh"
+            echo ""
+        fi
+
+        # Check if binary exists
+        if [ ! -f "$SCRIPT_DIR/slashsum" ]; then
+            echo "❌ Error: slashsum binary not found in $SCRIPT_DIR"
+            exit 1
+        fi
+
+        # Make binary executable
+        chmod +x "$SCRIPT_DIR/slashsum"
+
+        # Create install directory if needed
+        if [ ! -d "$INSTALL_DIR" ]; then
+            echo "📁 Creating $INSTALL_DIR..."
+            mkdir -p "$INSTALL_DIR"
+        fi
+
+        # Copy binary
+        echo "📦 Installing slashsum to $INSTALL_DIR..."
+        cp "$SCRIPT_DIR/slashsum" "$INSTALL_DIR/slashsum"
+        chmod +x "$INSTALL_DIR/slashsum"
+
+        # Verify installation
+        if command -v slashsum &> /dev/null; then
+            echo ""
+            echo "✅ Installation successful!"
+            echo ""
+            slashsum --version
+            echo ""
+            echo "🚀 You can now use 'slashsum' from anywhere."
+            echo "   Try: slashsum --help"
+        else
+            echo ""
+            echo "⚠️  Binary installed but not in PATH."
+            echo "   Add $INSTALL_DIR to your PATH or run:"
+            echo "   $INSTALL_DIR/slashsum --help"
+        fi
+        EOF
+        chmod +x slashsum-darwin-amd64-portable/install.sh
+
+        # Create uninstall script
+        cat > slashsum-darwin-amd64-portable/uninstall.sh << 'EOF'
+        #!/bin/bash
+        # Slashsum Uninstallation Script for macOS
+
+        set -e
+
+        INSTALL_DIR="/usr/local/bin"
+
+        echo "🗑️  Slashsum Uninstaller for macOS"
+        echo "=================================="
+        echo ""
+
+        if [ "$EUID" -ne 0 ]; then
+            echo "⚠️  Not running as root. Will try to uninstall from $INSTALL_DIR"
+            echo "   If this fails, please run: sudo ./uninstall.sh"
+            echo ""
+        fi
+
+        if [ -f "$INSTALL_DIR/slashsum" ]; then
+            rm "$INSTALL_DIR/slashsum"
+            echo "✅ Slashsum has been uninstalled successfully."
+        else
+            echo "⚠️  Slashsum is not installed in $INSTALL_DIR"
+        fi
+        EOF
+        chmod +x slashsum-darwin-amd64-portable/uninstall.sh
+
+        # Create the archive
+        tar -czvf slashsum-darwin-amd64-portable.tar.gz slashsum-darwin-amd64-portable/
+
+        # Show contents
+        echo "=== Package contents ==="
+        tar -tzvf slashsum-darwin-amd64-portable.tar.gz
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
         name: slashsum-macos
-        path: slashsum-darwin-amd64
+        path: slashsum-darwin-amd64-portable.tar.gz
 
   # Build Snap
   build-snap:
@@ -506,9 +720,12 @@ jobs:
         TAG_NAME=${GITHUB_REF#refs/tags/}
         VERSION=${TAG_NAME#v}
 
-        # Créer la structure de répertoires
+        # Extract binary from portable archive
+        tar -xzvf slashsum-linux-amd64-portable.tar.gz
+
+        # Create target structure
         mkdir -p target/release
-        cp slashsum-linux-amd64 target/release/slashsum
+        cp slashsum-linux-amd64-portable/slashsum target/release/slashsum
         chmod +x target/release/slashsum
 
         cat > nfpm.yaml << EOF
@@ -576,11 +793,11 @@ jobs:
 
         # Copier tous les binaires et packages
         echo "=== Copying release files ==="
-        cp slashsum-linux/slashsum-linux-amd64 release/ 2>/dev/null || true
+        cp slashsum-linux/slashsum-linux-amd64-portable.tar.gz release/ 2>/dev/null || true
         cp slashsum-windows/slashsum-windows-amd64.exe release/ 2>/dev/null || true
         cp slashsum-installers/slashsum-setup-user-*.exe release/ 2>/dev/null || echo "No User installer"
         cp slashsum-installers/slashsum-setup-admin-*.exe release/ 2>/dev/null || echo "No Admin installer"
-        cp slashsum-macos/slashsum-darwin-amd64 release/ 2>/dev/null || true
+        cp slashsum-macos/slashsum-darwin-amd64-portable.tar.gz release/ 2>/dev/null || true
         cp slashsum-snap/*.snap release/ 2>/dev/null || true
         cp slashsum-deb/*.deb release/ 2>/dev/null || true
 
@@ -602,10 +819,12 @@ jobs:
 
           ### 📦 Downloads
 
-          #### Binaries
-          - **🐧 Linux**: `slashsum-linux-amd64`
-          - **🪟 Windows**: `slashsum-windows-amd64.exe`
-          - **🍎 macOS**: `slashsum-darwin-amd64`
+          #### Portable packages (includes install script, LICENSE, README)
+          - **🐧 Linux**: `slashsum-linux-amd64-portable.tar.gz`
+          - **🍎 macOS**: `slashsum-darwin-amd64-portable.tar.gz`
+
+          #### Windows
+          - **Standalone**: `slashsum-windows-amd64.exe`
 
           #### Windows Installers
           - **👤 User Installer**: `slashsum-setup-user-${{ github.ref_name }}.exe` (no admin rights required)
@@ -647,16 +866,32 @@ jobs:
           slashsum --version
           ```
 
-          #### Manual installation (all platforms)
+          #### macOS
           ```bash
-          # Linux/macOS
-          chmod +x slashsum-*
-          sudo mv slashsum-* /usr/local/bin/slashsum
+          # Download and extract
+          tar -xzvf slashsum-darwin-amd64-portable.tar.gz
+          cd slashsum-darwin-amd64-portable
 
-          # Windows (PowerShell as admin)
-          # Create C:\Tools if needed, then:
-          # Move-Item slashsum-windows-amd64.exe C:\Tools\slashsum.exe
-          # Add C:\Tools to system PATH
+          # Run the install script
+          sudo ./install.sh
+
+          # Or manual installation
+          chmod +x slashsum
+          sudo mv slashsum /usr/local/bin/
+          ```
+
+          #### Linux (Portable)
+          ```bash
+          # Download and extract
+          tar -xzvf slashsum-linux-amd64-portable.tar.gz
+          cd slashsum-linux-amd64-portable
+
+          # Run the install script
+          sudo ./install.sh
+
+          # Or manual installation
+          chmod +x slashsum
+          sudo mv slashsum /usr/local/bin/
           ```
 
           ### ✨ Features

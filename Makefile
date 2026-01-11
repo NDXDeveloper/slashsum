@@ -1,4 +1,4 @@
-# Makefile complet pour slashsum avec setup Rust
+# Complete Makefile for slashsum with Rust setup
 .PHONY: build test clean run help install release setup-rust setup-windows setup-dev build-windows build-all
 
 # Variables
@@ -7,111 +7,111 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 BUILD_TIME_VAL = $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GIT_COMMIT_VAL = $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-# Variables d'environnement pour Rust
+# Environment variables for Rust
 export BUILD_VERSION=$(VERSION)
 export BUILD_TIME=$(BUILD_TIME_VAL)
 export GIT_COMMIT=$(GIT_COMMIT_VAL)
 
 # =============================================================================
-# SETUP ET INSTALLATION
+# SETUP AND INSTALLATION
 # =============================================================================
 
-check-rust: ## Vérifier si Rust est installé
+check-rust: ## Check if Rust is installed
 	@if ! command -v rustc >/dev/null 2>&1; then \
-		echo "❌ Rust n'est pas installé"; \
-		echo "💡 Lancez 'make setup-rust' pour l'installer"; \
+		echo "❌ Rust is not installed"; \
+		echo "💡 Run 'make setup-rust' to install it"; \
 		exit 1; \
 	else \
 		echo "✅ Rust $(shell rustc --version)"; \
 	fi
 
-setup-rust: ## Installer Rust via rustup
-	@echo "🦀 Installation de Rust..."
+setup-rust: ## Install Rust via rustup
+	@echo "🦀 Installing Rust..."
 	@if ! command -v rustc >/dev/null 2>&1; then \
-		echo "📥 Téléchargement et installation de rustup..."; \
+		echo "📥 Downloading and installing rustup..."; \
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
-		echo "🔄 Rechargement de l'environnement..."; \
+		echo "🔄 Reloading environment..."; \
 		. ~/.cargo/env; \
-		echo "✅ Rust installé avec succès"; \
+		echo "✅ Rust installed successfully"; \
 	else \
-		echo "✅ Rust déjà installé"; \
+		echo "✅ Rust already installed"; \
 	fi
-	@echo "🔧 Configuration des composants..."
+	@echo "🔧 Configuring components..."
 	rustup component add clippy rustfmt
-	@echo "📋 Versions installées:"
+	@echo "📋 Installed versions:"
 	@rustc --version
 	@cargo --version
 	@rustup --version
 
-setup-windows: ## Installer les outils pour cross-compilation Windows
-	@echo "🪟 Installation des outils Windows..."
+setup-windows: ## Install tools for Windows cross-compilation
+	@echo "🪟 Installing Windows tools..."
 	@make check-rust
-	@echo "📥 Installation de la target Windows..."
+	@echo "📥 Installing Windows target..."
 	rustup target add x86_64-pc-windows-gnu
-	@echo "🔧 Installation des outils de cross-compilation..."
+	@echo "🔧 Installing cross-compilation tools..."
 	@if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then \
-		echo "📦 Installation de mingw-w64..."; \
+		echo "📦 Installing mingw-w64..."; \
 		sudo apt update; \
 		sudo apt install -y gcc-mingw-w64-x86-64; \
 	else \
-		echo "✅ mingw-w64 déjà installé"; \
+		echo "✅ mingw-w64 already installed"; \
 	fi
-	@echo "✅ Setup Windows terminé"
+	@echo "✅ Windows setup complete"
 
-setup-dev: ## Installer tous les outils de développement
-	@echo "🛠️  Installation complète de l'environnement de développement..."
+setup-dev: ## Install all development tools
+	@echo "🛠️  Full development environment installation..."
 	@make setup-rust
 	@make setup-windows
-	@echo "🔧 Installation des outils additionnels..."
+	@echo "🔧 Installing additional tools..."
 	@if ! command -v cargo-audit >/dev/null 2>&1; then \
 		cargo install cargo-audit; \
 	else \
-		echo "✅ cargo-audit déjà installé"; \
+		echo "✅ cargo-audit already installed"; \
 	fi
 	@if ! command -v cargo-tarpaulin >/dev/null 2>&1; then \
 		cargo install cargo-tarpaulin; \
 	else \
-		echo "✅ cargo-tarpaulin déjà installé"; \
+		echo "✅ cargo-tarpaulin already installed"; \
 	fi
-	@echo "📋 Résumé de l'installation:"
-	@echo "  🦀 Rust: $(shell rustc --version 2>/dev/null || echo 'Non installé')"
-	@echo "  📦 Cargo: $(shell cargo --version 2>/dev/null || echo 'Non installé')"
-	@echo "  🪟 Windows target: $(shell rustup target list --installed | grep x86_64-pc-windows-gnu || echo 'Non installé')"
-	@echo "  🔍 Clippy: $(shell rustup component list --installed | grep clippy || echo 'Non installé')"
-	@echo "  🎨 rustfmt: $(shell rustup component list --installed | grep rustfmt || echo 'Non installé')"
-	@echo "  🛡️  cargo-audit: $(shell command -v cargo-audit >/dev/null 2>&1 && echo 'Installé' || echo 'Non installé')"
-	@echo "  📊 cargo-tarpaulin: $(shell command -v cargo-tarpaulin >/dev/null 2>&1 && echo 'Installé' || echo 'Non installé')"
-	@echo "✅ Environnement de développement prêt!"
+	@echo "📋 Installation summary:"
+	@echo "  🦀 Rust: $(shell rustc --version 2>/dev/null || echo 'Not installed')"
+	@echo "  📦 Cargo: $(shell cargo --version 2>/dev/null || echo 'Not installed')"
+	@echo "  🪟 Windows target: $(shell rustup target list --installed | grep x86_64-pc-windows-gnu || echo 'Not installed')"
+	@echo "  🔍 Clippy: $(shell rustup component list --installed | grep clippy || echo 'Not installed')"
+	@echo "  🎨 rustfmt: $(shell rustup component list --installed | grep rustfmt || echo 'Not installed')"
+	@echo "  🛡️  cargo-audit: $(shell command -v cargo-audit >/dev/null 2>&1 && echo 'Installed' || echo 'Not installed')"
+	@echo "  📊 cargo-tarpaulin: $(shell command -v cargo-tarpaulin >/dev/null 2>&1 && echo 'Installed' || echo 'Not installed')"
+	@echo "✅ Development environment ready!"
 
-update-rust: ## Mettre à jour Rust et ses composants
-	@echo "🔄 Mise à jour de Rust..."
+update-rust: ## Update Rust and its components
+	@echo "🔄 Updating Rust..."
 	rustup update
 	rustup component add clippy rustfmt
-	@echo "✅ Rust mis à jour"
+	@echo "✅ Rust updated"
 
 # =============================================================================
 # BUILD
 # =============================================================================
 
-build: check-rust ## Compiler le binaire Linux
+build: check-rust ## Build Linux binary
 	@echo "🔨 Building $(BINARY_NAME) version $(VERSION)..."
 	@echo "📅 Build time: $(BUILD_TIME_VAL)"
 	@echo "🔗 Git commit: $(GIT_COMMIT_VAL)"
 	cargo build --release
 
-build-local: check-rust build ## Build avec vérifications pour usage local
+build-local: check-rust build ## Build with checks for local use
 
-build-windows: ## Build pour Windows (avec vérifications)
+build-windows: ## Build for Windows (with checks)
 	@echo "🪟 Building for Windows..."
 	@make check-rust
 	@if ! rustup target list --installed | grep -q x86_64-pc-windows-gnu; then \
-		echo "❌ Windows target manquante"; \
-		echo "💡 Lancez 'make setup-windows' pour l'installer"; \
+		echo "❌ Windows target missing"; \
+		echo "💡 Run 'make setup-windows' to install it"; \
 		exit 1; \
 	fi
 	@if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then \
-		echo "❌ Outils de cross-compilation manquants"; \
-		echo "💡 Lancez 'make setup-windows' pour les installer"; \
+		echo "❌ Cross-compilation tools missing"; \
+		echo "💡 Run 'make setup-windows' to install them"; \
 		exit 1; \
 	fi
 	@export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc && \
@@ -119,17 +119,17 @@ build-windows: ## Build pour Windows (avec vérifications)
 	export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar && \
 	export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc && \
 	cargo build --release --target x86_64-pc-windows-gnu
-	@echo "✅ Windows build terminé"
+	@echo "✅ Windows build complete"
 
-build-all: build build-windows ## Build pour toutes les plateformes
+build-all: build build-windows ## Build for all platforms
 	@echo "🎉 All builds completed successfully!"
-	@echo "📁 Binaires créés:"
+	@echo "📁 Binaries created:"
 	@echo "  🐧 Linux:   target/release/$(BINARY_NAME)"
 	@echo "  🪟 Windows: target/x86_64-pc-windows-gnu/release/$(BINARY_NAME).exe"
-	@ls -la target/release/$(BINARY_NAME) 2>/dev/null || echo "  ❌ Linux binary manquant"
-	@ls -la target/x86_64-pc-windows-gnu/release/$(BINARY_NAME).exe 2>/dev/null || echo "  ❌ Windows binary manquant"
+	@ls -la target/release/$(BINARY_NAME) 2>/dev/null || echo "  ❌ Linux binary missing"
+	@ls -la target/x86_64-pc-windows-gnu/release/$(BINARY_NAME).exe 2>/dev/null || echo "  ❌ Windows binary missing"
 
-debug: check-rust ## Compiler en mode debug
+debug: check-rust ## Build in debug mode
 	@echo "🔨 Building $(BINARY_NAME) version $(VERSION) (debug)..."
 	cargo build
 
@@ -137,150 +137,150 @@ debug: check-rust ## Compiler en mode debug
 # TESTS
 # =============================================================================
 
-test: check-rust ## Lancer les tests basiques
+test: check-rust ## Run basic tests
 	cargo test
 
-test-all: check-rust ## Lancer tous les tests (y compris ignorés)
-	@echo "🧪 Tests complets..."
+test-all: check-rust ## Run all tests (including ignored)
+	@echo "🧪 Full tests..."
 	cargo test -- --include-ignored
 
-test-verbose: check-rust ## Tests avec sortie détaillée
-	@echo "🔍 Tests verbeux..."
+test-verbose: check-rust ## Tests with detailed output
+	@echo "🔍 Verbose tests..."
 	cargo test -- --nocapture
 
-test-performance: check-rust ## Tests de performance uniquement
-	@echo "⚡ Tests de performance..."
+test-performance: check-rust ## Performance tests only
+	@echo "⚡ Performance tests..."
 	cargo test --release -- --ignored --nocapture
 
-test-coverage: check-rust ## Tests avec couverture de code
-	@echo "📊 Tests avec couverture..."
+test-coverage: check-rust ## Tests with code coverage
+	@echo "📊 Tests with coverage..."
 	@if ! command -v cargo-tarpaulin >/dev/null 2>&1; then \
-		echo "📥 Installation de cargo-tarpaulin..."; \
+		echo "📥 Installing cargo-tarpaulin..."; \
 		cargo install cargo-tarpaulin; \
 	fi
 	cargo tarpaulin --verbose --all-features --workspace --timeout 120
 
-test-windows: build-windows ## Tester le binaire Windows avec Wine
+test-windows: build-windows ## Test Windows binary with Wine
 	@echo "🧪 Testing Windows binary..."
 	@if command -v wine >/dev/null 2>&1; then \
-		echo "🍷 Test avec Wine:"; \
+		echo "🍷 Testing with Wine:"; \
 		wine target/x86_64-pc-windows-gnu/release/$(BINARY_NAME).exe --version; \
 	else \
-		echo "⚠️  Wine non installé - vérification basique:"; \
+		echo "⚠️  Wine not installed - basic check:"; \
 		file target/x86_64-pc-windows-gnu/release/$(BINARY_NAME).exe; \
 	fi
 
-test-files: build ## Tests avec fichiers réels
-	@echo "📁 Tests avec fichiers réels..."
+test-files: build ## Tests with real files
+	@echo "📁 Tests with real files..."
 	@mkdir -p /tmp/slashsum_test
 	@echo "Hello World!" > /tmp/slashsum_test/small.txt
 	@dd if=/dev/zero of=/tmp/slashsum_test/medium.bin bs=1M count=1 2>/dev/null
 	@touch /tmp/slashsum_test/empty.txt
-	@echo "🧪 Test fichier petit..."
+	@echo "🧪 Testing small file..."
 	@./target/release/$(BINARY_NAME) /tmp/slashsum_test/small.txt
-	@echo "🧪 Test fichier vide..."
+	@echo "🧪 Testing empty file..."
 	@./target/release/$(BINARY_NAME) /tmp/slashsum_test/empty.txt
-	@echo "🧪 Test fichier moyen..."
+	@echo "🧪 Testing medium file..."
 	@./target/release/$(BINARY_NAME) /tmp/slashsum_test/medium.bin
-	@echo "🧪 Test option --save..."
+	@echo "🧪 Testing --save option..."
 	@./target/release/$(BINARY_NAME) /tmp/slashsum_test/small.txt --save
 	@rm -rf /tmp/slashsum_test
-	@echo "✅ Tests fichiers terminés"
+	@echo "✅ File tests complete"
 
 # =============================================================================
-# QUALITÉ DE CODE
+# CODE QUALITY
 # =============================================================================
 
-lint: check-rust ## Vérifications avec Clippy
-	@echo "🔍 Vérifications Clippy..."
+lint: check-rust ## Run Clippy checks
+	@echo "🔍 Running Clippy checks..."
 	cargo clippy -- -D warnings
 
-fmt: check-rust ## Vérifier le formatage du code
-	@echo "🎨 Vérification du formatage..."
+fmt: check-rust ## Check code formatting
+	@echo "🎨 Checking code formatting..."
 	cargo fmt -- --check
 
-fmt-fix: check-rust ## Corriger le formatage du code
-	@echo "🎨 Correction du formatage..."
+fmt-fix: check-rust ## Fix code formatting
+	@echo "🎨 Fixing code formatting..."
 	cargo fmt
 
-check: check-rust ## Vérification rapide de compilation
-	@echo "🔧 Vérification de compilation..."
+check: check-rust ## Quick compilation check
+	@echo "🔧 Checking compilation..."
 	cargo check
 
-audit: check-rust ## Audit de sécurité
-	@echo "🛡️  Audit de sécurité..."
+audit: check-rust ## Security audit
+	@echo "🛡️  Security audit..."
 	@if ! command -v cargo-audit >/dev/null 2>&1; then \
-		echo "📥 Installation de cargo-audit..."; \
+		echo "📥 Installing cargo-audit..."; \
 		cargo install cargo-audit; \
 	fi
 	cargo audit
 
-ci: lint fmt test audit ## Pipeline CI complète
-	@echo "✅ Pipeline CI terminée avec succès"
+ci: lint fmt test audit ## Full CI pipeline
+	@echo "✅ CI pipeline completed successfully"
 
 # =============================================================================
-# DOCUMENTATION ET UTILITAIRES
+# DOCUMENTATION AND UTILITIES
 # =============================================================================
 
-doc: check-rust ## Générer la documentation
-	@echo "📚 Génération de la documentation..."
+doc: check-rust ## Generate documentation
+	@echo "📚 Generating documentation..."
 	cargo doc --no-deps --document-private-items --open
 
-clean: ## Nettoyer les fichiers de build
+clean: ## Clean build files
 	cargo clean
 
-run: check-rust ## Compiler et exécuter
+run: check-rust ## Build and run
 	cargo run
 
-install: build ## Installer le binaire dans ~/.cargo/bin
+install: build ## Install binary to ~/.cargo/bin
 	cp target/release/$(BINARY_NAME) ~/.cargo/bin/
 
-uninstall: ## Désinstaller le binaire de ~/.cargo/bin
-	@echo "🗑️  Désinstallation de $(BINARY_NAME)..."
+uninstall: ## Uninstall binary from ~/.cargo/bin
+	@echo "🗑️  Uninstalling $(BINARY_NAME)..."
 	@if [ -f ~/.cargo/bin/$(BINARY_NAME) ]; then \
 		rm ~/.cargo/bin/$(BINARY_NAME); \
-		echo "✅ $(BINARY_NAME) désinstallé avec succès"; \
+		echo "✅ $(BINARY_NAME) uninstalled successfully"; \
 	else \
-		echo "⚠️  $(BINARY_NAME) n'est pas installé dans ~/.cargo/bin"; \
+		echo "⚠️  $(BINARY_NAME) is not installed in ~/.cargo/bin"; \
 	fi
 
-release: check-rust ## Build optimisé pour release
+release: check-rust ## Optimized release build
 	@echo "🚀 Building release $(BINARY_NAME) version $(VERSION)..."
 	cargo build --release --target x86_64-unknown-linux-gnu
 
-# Afficher les informations de version
-version: ## Afficher les informations de version
-	@echo "📋 Informations de version:"
+# Display version information
+version: ## Display version information
+	@echo "📋 Version information:"
 	@echo "  Version: $(VERSION)"
 	@echo "  Build time: $(BUILD_TIME_VAL)"
 	@echo "  Git commit: $(GIT_COMMIT_VAL)"
 
-status: ## Afficher le statut de l'environnement
-	@echo "📊 Statut de l'environnement de développement:"
+status: ## Display environment status
+	@echo "📊 Development environment status:"
 	@echo "🦀 Rust:"
-	@echo "  Version: $(shell rustc --version 2>/dev/null || echo '❌ Non installé')"
-	@echo "  Cargo: $(shell cargo --version 2>/dev/null || echo '❌ Non installé')"
-	@echo "🎯 Targets installées:"
-	@rustup target list --installed 2>/dev/null | sed 's/^/  /' || echo "  ❌ rustup non disponible"
-	@echo "🔧 Composants:"
-	@rustup component list --installed 2>/dev/null | sed 's/^/  /' || echo "  ❌ rustup non disponible"
-	@echo "🛠️  Outils additionnels:"
-	@echo "  cargo-audit: $(shell command -v cargo-audit >/dev/null 2>&1 && echo '✅ Installé' || echo '❌ Non installé')"
-	@echo "  cargo-tarpaulin: $(shell command -v cargo-tarpaulin >/dev/null 2>&1 && echo '✅ Installé' || echo '❌ Non installé')"
-	@echo "🪟 Cross-compilation Windows:"
-	@echo "  mingw-w64: $(shell command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1 && echo '✅ Installé' || echo '❌ Non installé')"
+	@echo "  Version: $(shell rustc --version 2>/dev/null || echo '❌ Not installed')"
+	@echo "  Cargo: $(shell cargo --version 2>/dev/null || echo '❌ Not installed')"
+	@echo "🎯 Installed targets:"
+	@rustup target list --installed 2>/dev/null | sed 's/^/  /' || echo "  ❌ rustup not available"
+	@echo "🔧 Components:"
+	@rustup component list --installed 2>/dev/null | sed 's/^/  /' || echo "  ❌ rustup not available"
+	@echo "🛠️  Additional tools:"
+	@echo "  cargo-audit: $(shell command -v cargo-audit >/dev/null 2>&1 && echo '✅ Installed' || echo '❌ Not installed')"
+	@echo "  cargo-tarpaulin: $(shell command -v cargo-tarpaulin >/dev/null 2>&1 && echo '✅ Installed' || echo '❌ Not installed')"
+	@echo "🪟 Windows cross-compilation:"
+	@echo "  mingw-w64: $(shell command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1 && echo '✅ Installed' || echo '❌ Not installed')"
 
-help: ## Afficher cette aide
-	@echo "🛠️  Makefile pour $(BINARY_NAME)"
+help: ## Display this help
+	@echo "🛠️  Makefile for $(BINARY_NAME)"
 	@echo ""
-	@echo "📋 Commandes disponibles:"
+	@echo "📋 Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "🚀 Commandes de démarrage rapide:"
-	@echo "  make setup-dev          # Installation complète de l'environnement"
+	@echo "🚀 Quick start commands:"
+	@echo "  make setup-dev          # Full environment installation"
 	@echo "  make build-all          # Build Linux + Windows"
-	@echo "  make ci                 # Pipeline complète (lint + test + audit)"
+	@echo "  make ci                 # Full pipeline (lint + test + audit)"
 	@echo ""
-	@echo "📊 Commandes d'information:"
-	@echo "  make status             # Statut de l'environnement"
-	@echo "  make version            # Informations de version"
+	@echo "📊 Information commands:"
+	@echo "  make status             # Environment status"
+	@echo "  make version            # Version information"

@@ -317,7 +317,7 @@ fn print_version_and_license() {
     println!(
         r#"MIT License
 
-Copyright (c) 2025 Nicolas DEOUX
+Copyright (c) 2025-2026 Nicolas DEOUX
                    NDXDev@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

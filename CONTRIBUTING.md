@@ -1,4 +1,3 @@
-```markdown
 # 🤝 Contributing Guide
 
 We love contributions! Here's how to get involved in Slashsum development:
@@ -60,21 +59,16 @@ We love contributions! Here's how to get involved in Slashsum development:
 
 ## 🧪 Testing
 
-Test structure:
-```text
-tests/
-├── unit/      # Unit tests
-└── integ/     # Integration tests
-```
+Tests are located in `src/main.rs` using Rust's built-in test framework (`#[cfg(test)]` module).
 
 Run all tests:
 ```bash
 cargo test --verbose
 ```
 
-Test coverage (PR requirement):
+Run specific test:
 ```bash
-cargo tarpaulin --ignore-tests --out Html
+cargo test test_name
 ```
 
 ## 📚 Documentation
@@ -116,5 +110,4 @@ By contributing, you agree to license your work under the [MIT License](LICENSE)
 ---
 
 💡 **Pro Tip**: Before starting major work, discuss your approach in an issue to ensure alignment with project goals!
-```
 

@@ -21,23 +21,46 @@ Calculate multiple file checksums simultaneously with blazing-fast performance u
 
 ## 🚀 Installation
 
-### Option 1: From Snap (Linux)
-If you're using a Linux system, you can easily install **Slashsum** using Snap:
-
-1. Download the Snap package:
-   - You can download the `slashsum_0.1.0_amd64.snap` file from the [releases page](https://github.com/yourusername/slashsum/releases) or from a local source.
-
-2. Install the Snap package:
-   - Open a terminal and run the following command:
-   ```bash
-   sudo snap install slashsum_0.1.0_amd64.snap --dangerous --classic
-   ```
-### Build from source:
+### Option 1: Linux (Portable)
+Download the portable package from the [releases page](https://github.com/NDXDeveloper/slashsum/releases):
 ```bash
-git clone https://github.com/yourusername/slashsum
+tar -xzvf slashsum-linux-amd64-portable.tar.gz
+cd slashsum-linux-amd64-portable
+sudo ./install.sh
+```
+
+### Option 2: Linux (Snap)
+Download the `.snap` file from the [releases page](https://github.com/NDXDeveloper/slashsum/releases) and install:
+```bash
+sudo snap install slashsum_<version>_amd64.snap --dangerous --classic
+```
+
+### Option 3: Linux (DEB - Debian/Ubuntu)
+Download the `.deb` file from the [releases page](https://github.com/NDXDeveloper/slashsum/releases) and install:
+```bash
+sudo dpkg -i slashsum_<version>_amd64.deb
+```
+
+### Option 4: Windows
+Download the installer from the [releases page](https://github.com/NDXDeveloper/slashsum/releases):
+- `slashsum-setup-user-<version>.exe` - Install for current user only (no admin required)
+- `slashsum-setup-admin-<version>.exe` - System-wide installation (requires admin)
+
+### Option 5: macOS
+Download the portable package from the [releases page](https://github.com/NDXDeveloper/slashsum/releases):
+```bash
+tar -xzvf slashsum-darwin-amd64-portable.tar.gz
+cd slashsum-darwin-amd64-portable
+sudo ./install.sh
+```
+
+### Option 6: Build from source
+```bash
+git clone https://github.com/NDXDeveloper/slashsum
 cd slashsum
 cargo build --release
 ```
+The binary will be available at `target/release/slashsum`.
 
 ## 🛠 Usage
 
@@ -90,16 +113,23 @@ Tested on AWS EC2 t2.xlarge instance (4 vCPUs, 16GB RAM)
 
 ## 🤝 Contributing
 
-Les contributions sont les bienvenues !  
-Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour les guidelines.
+Contributions are welcome!
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 👤 Author
+
+**Nicolas DEOUX**
+
+- [NDXDev@gmail.com](mailto:NDXDev@gmail.com)
+- [LinkedIn](https://www.linkedin.com/in/nicolas-deoux-ab295980/)
+- [GitHub](https://github.com/NDXDeveloper)
 
 ## 📜 License
 
-MIT License - Voir [LICENSE](LICENSE)
+MIT License - See [LICENSE](LICENSE)
 
 ---
 
-🔍 **Why "Slashsum"?**  
+🔍 **Why "Slashsum"?**
 Combination of "slash" (/) for file paths and "checksum" - because every good tool needs a catchy name!
-```
 
