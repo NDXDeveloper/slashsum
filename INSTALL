@@ -36,6 +36,7 @@ usermod -aG wheel your_username
 # =============================================================================
 
 sudo apt install ./slashsum_*_amd64.deb
+hash -r
 
 # Or with dpkg
 sudo dpkg -i slashsum_*_amd64.deb
@@ -87,6 +88,9 @@ sudo ln -s /var/lib/snapd/snap /snap
 
 ## Install from Snap Store (recommended - auto-updates)
 sudo snap install slashsum
+sudo snap connect slashsum:home
+sudo snap connect slashsum:removable-media
+hash -r
 
 ## Run
 slashsum --version
@@ -98,6 +102,9 @@ slashsum --version
 
 ## Install the snap package from release file
 sudo snap install --dangerous slashsum_*_amd64.snap
+sudo snap connect slashsum:home
+sudo snap connect slashsum:removable-media
+hash -r
 
 ## Run
 slashsum --version

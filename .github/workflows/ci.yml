@@ -991,12 +991,16 @@ jobs:
           ```bash
           wget https://github.com/NDXDeveloper/slashsum/releases/download/${{ github.ref_name }}/slashsum_${{ github.ref_name }}_amd64.deb
           sudo apt install ./slashsum_${{ github.ref_name }}_amd64.deb
+          hash -r
           slashsum --version
           ```
 
           #### Linux (Snap Store - Recommended)
           ```bash
           sudo snap install slashsum
+          sudo snap connect slashsum:home
+          sudo snap connect slashsum:removable-media
+          hash -r  # Refresh shell path cache
           slashsum --version
           ```
 
@@ -1004,6 +1008,9 @@ jobs:
           ```bash
           wget https://github.com/NDXDeveloper/slashsum/releases/download/${{ github.ref_name }}/slashsum_${{ github.ref_name }}_amd64.snap
           sudo snap install --dangerous slashsum_${{ github.ref_name }}_amd64.snap
+          sudo snap connect slashsum:home
+          sudo snap connect slashsum:removable-media
+          hash -r  # Refresh shell path cache
           slashsum --version
           ```
 

@@ -261,14 +261,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Expands tilde (~) to home directory in file paths
 /// Handles both "~" and "~/path" patterns
+/// Supports snap confinement (SNAP_REAL_HOME), standard Unix (HOME), and Windows (USERPROFILE)
 fn expand_tilde(path: &str) -> PathBuf {
-    if path.starts_with("~/") {
-        if let Some(home) = env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")) {
-            return PathBuf::from(home).join(&path[2..]);
-        }
-    } else if path == "~" {
-        if let Some(home) = env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")) {
-            return PathBuf::from(home);
+    if path.starts_with("~/") || path == "~" {
+        // Priority: SNAP_REAL_HOME (snap), HOME (Unix), USERPROFILE (Windows)
+        let home = env::var_os("SNAP_REAL_HOME")
+            .or_else(|| env::var_os("HOME"))
+            .or_else(|| env::var_os("USERPROFILE"));
+
+        if let Some(home_dir) = home {
+            if path == "~" {
+                return PathBuf::from(home_dir);
+            } else {
+                return PathBuf::from(home_dir).join(&path[2..]);
+            }
         }
     }
     PathBuf::from(path)
