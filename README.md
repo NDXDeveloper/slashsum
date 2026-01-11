@@ -35,6 +35,10 @@
 
 ## 🚀 Quick Start
 
+<a href="https://snapcraft.io/slashsum">
+  <img alt="Get it from the Snap Store" src="https://snapcraft.io/en/dark/install.svg" />
+</a>
+
 ```bash
 # Linux (Snap Store - recommended)
 sudo snap install slashsum
@@ -81,6 +85,10 @@ slashsum myfile.iso --save
 ## 📦 Installation
 
 ### Option 1: Linux (Snap Store) - Recommended ⭐
+
+<a href="https://snapcraft.io/slashsum">
+  <img alt="Get it from the Snap Store" src="https://snapcraft.io/en/dark/install.svg" />
+</a>
 
 ```bash
 sudo snap install slashsum
