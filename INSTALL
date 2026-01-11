@@ -1,0 +1,289 @@
+# =============================================================================
+# Slashsum - Installation Guide
+# =============================================================================
+
+# =============================================================================
+# PREREQUISITES - Install sudo (if not available)
+# =============================================================================
+
+# Debian (as root)
+su -
+apt install sudo
+usermod -aG sudo your_username
+# Then log out and log in
+
+# Arch Linux (as root)
+su -
+pacman -S sudo
+echo "your_username ALL=(ALL:ALL) ALL" >> /etc/sudoers.d/your_username
+# Then log out and log in
+
+# Fedora (as root, if minimal install)
+su -
+dnf install sudo
+usermod -aG wheel your_username
+# Then log out and log in
+
+# openSUSE (as root, if minimal install)
+su -
+zypper install sudo
+usermod -aG wheel your_username
+# Then log out and log in
+
+
+# =============================================================================
+# LINUX - Install from DEB (Ubuntu/Debian/Linux Mint)
+# =============================================================================
+
+sudo apt install ./slashsum_*_amd64.deb
+
+# Or with dpkg
+sudo dpkg -i slashsum_*_amd64.deb
+
+
+# =============================================================================
+# LINUX - Portable (tar.gz) - Recommended
+# =============================================================================
+
+tar -xzvf slashsum-linux-amd64-portable.tar.gz
+cd slashsum-linux-amd64-portable
+
+# Run the install script
+sudo ./install.sh
+
+# Or manual installation
+chmod +x slashsum
+sudo mv slashsum /usr/local/bin/
+
+# Run
+slashsum --version
+slashsum --help
+
+
+# =============================================================================
+# LINUX - Snap Store (Recommended)
+# =============================================================================
+
+## Install snapd first (if not already installed)
+
+# Ubuntu (pre-installed)
+
+# Debian
+sudo apt install snapd
+
+# Fedora
+sudo dnf install snapd
+sudo ln -s /var/lib/snapd/snap /snap
+sudo systemctl enable --now snapd.socket
+
+# openSUSE
+sudo zypper install snapd
+sudo systemctl enable --now snapd
+
+# Arch Linux
+sudo pacman -S snapd
+sudo systemctl enable --now snapd.socket
+sudo ln -s /var/lib/snapd/snap /snap
+
+## Install from Snap Store (recommended - auto-updates)
+sudo snap install slashsum
+
+## Run
+slashsum --version
+
+
+# =============================================================================
+# LINUX - Snap (Manual from GitHub Release)
+# =============================================================================
+
+## Install the snap package from release file
+sudo snap install --dangerous slashsum_*_amd64.snap
+
+## Run
+slashsum --version
+
+## Create short alias (optional)
+sudo snap alias slashsum ss
+# Then you can run with just: ss
+
+
+# =============================================================================
+# MACOS - Portable (tar.gz)
+# =============================================================================
+
+tar -xzvf slashsum-darwin-amd64-portable.tar.gz
+cd slashsum-darwin-amd64-portable
+
+# Run the install script
+sudo ./install.sh
+
+# Or manual installation
+chmod +x slashsum
+sudo mv slashsum /usr/local/bin/
+
+# Run
+slashsum --version
+slashsum --help
+
+
+# =============================================================================
+# WINDOWS - System Installer (Admin required)
+# =============================================================================
+
+# Download and run: slashsum-setup-admin-v*.exe
+# Right-click > "Run as administrator"
+# Default install path: C:\Program Files\NDXDeveloper\Slashsum CLI\
+
+# Open a new terminal and run:
+slashsum --version
+
+
+# =============================================================================
+# WINDOWS - User Installer (No admin required)
+# =============================================================================
+
+# Download and run: slashsum-setup-user-v*.exe
+# Default install path: %LOCALAPPDATA%\NDXDeveloper\Slashsum\
+
+# Open a new terminal and run:
+slashsum --version
+
+
+# =============================================================================
+# WINDOWS - Portable (ZIP)
+# =============================================================================
+
+# Download slashsum-windows-amd64-portable.zip
+
+# Extract with PowerShell
+Expand-Archive slashsum-windows-amd64-portable.zip -DestinationPath .
+cd slashsum-windows-amd64-portable
+
+# Run the install script (right-click > Run as administrator for system-wide)
+.\install.bat
+
+# Or manual installation: copy slashsum.exe to a folder in your PATH
+# e.g., C:\Windows\ or create C:\Tools\ and add it to PATH
+
+# Run
+slashsum --version
+slashsum --help
+
+
+# =============================================================================
+# BUILD FROM SOURCE
+# =============================================================================
+
+# Prerequisites: Rust toolchain (https://rustup.rs)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+# Clone and build
+git clone https://github.com/NDXDeveloper/slashsum
+cd slashsum
+cargo build --release
+
+# Binary will be at: target/release/slashsum
+
+# Install
+sudo cp target/release/slashsum /usr/local/bin/
+
+
+# =============================================================================
+# UNINSTALL
+# =============================================================================
+
+# DEB
+sudo apt remove slashsum
+
+# Snap
+sudo snap remove slashsum
+
+# Portable (Linux/macOS)
+sudo rm /usr/local/bin/slashsum
+# Or run the uninstall script from the portable package:
+sudo ./uninstall.sh
+
+# Windows (Installer)
+# Use Control Panel > Programs > Uninstall
+# Or: Settings > Apps > Slashsum > Uninstall
+
+# Windows (Portable)
+# Run the uninstall script from the portable package:
+.\uninstall.bat
+# Or manually delete slashsum.exe from your PATH folder
+
+
+# =============================================================================
+# USAGE
+# =============================================================================
+
+# Calculate checksums for a file
+slashsum /path/to/file
+
+# Save results to a .checksum file
+slashsum /path/to/file --save
+
+# Show help
+slashsum --help
+
+# Show version and license
+slashsum --version
+
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+## Check if slashsum is in PATH
+which slashsum
+slashsum --version
+
+## Linux: Check binary permissions
+ls -la /usr/local/bin/slashsum
+# Should show: -rwxr-xr-x
+
+## Linux: Make binary executable
+sudo chmod +x /usr/local/bin/slashsum
+
+## DEB: Fix dependency errors
+sudo apt install -f
+
+## DEB: Reinstall package
+sudo apt install --reinstall ./slashsum_*_amd64.deb
+
+## Snap: Check permissions
+snap connections slashsum
+
+## Snap: Connect missing permissions
+sudo snap connect slashsum:home
+sudo snap connect slashsum:removable-media
+
+## Snap: View logs
+snap logs slashsum
+
+## Snap: Check confinement issues
+journalctl -f | grep -i apparmor
+
+## Check missing libraries (portable)
+ldd slashsum | grep "not found"
+
+## Windows: Check if in PATH
+where slashsum
+
+## Windows: Run from command line to see errors
+cd "C:\Program Files\NDXDeveloper\Slashsum CLI"
+slashsum.exe --version
+
+## Windows: Refresh PATH without restarting
+# PowerShell
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+## macOS: Allow unsigned binary (if blocked by Gatekeeper)
+xattr -d com.apple.quarantine slashsum
+# Or: System Preferences > Security & Privacy > Allow
+
+## Permission denied on file
+# Check file permissions
+ls -la /path/to/file
+# Run with appropriate permissions or change file ownership

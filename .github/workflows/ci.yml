@@ -206,7 +206,7 @@ jobs:
     - name: Install cross-compilation tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-mingw-w64-x86-64
+        sudo apt-get install -y gcc-mingw-w64-x86-64 zip
 
     - name: Build Windows binary
       run: |
@@ -216,13 +216,119 @@ jobs:
         export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
 
         cargo build --release --target x86_64-pc-windows-gnu
-        cp target/x86_64-pc-windows-gnu/release/slashsum.exe slashsum-windows-amd64.exe
+
+    - name: Create portable package
+      run: |
+        # Create package directory
+        mkdir -p slashsum-windows-amd64-portable
+
+        # Copy binary
+        cp target/x86_64-pc-windows-gnu/release/slashsum.exe slashsum-windows-amd64-portable/
+
+        # Copy documentation
+        cp LICENSE slashsum-windows-amd64-portable/
+        cp README.md slashsum-windows-amd64-portable/
+
+        # Create install script (batch)
+        cat > slashsum-windows-amd64-portable/install.bat << 'EOF'
+        @echo off
+        :: Slashsum Installation Script for Windows
+        :: Run as Administrator for system-wide installation
+
+        echo ========================================
+        echo  Slashsum Installer for Windows
+        echo ========================================
+        echo.
+
+        set "INSTALL_DIR=%LOCALAPPDATA%\Slashsum"
+
+        :: Check for admin rights
+        net session >nul 2>&1
+        if %errorLevel% == 0 (
+            set "INSTALL_DIR=%ProgramFiles%\Slashsum"
+            echo Running as Administrator - Installing to %INSTALL_DIR%
+        ) else (
+            echo Running as User - Installing to %INSTALL_DIR%
+        )
+        echo.
+
+        :: Create install directory
+        if not exist "%INSTALL_DIR%" (
+            echo Creating directory: %INSTALL_DIR%
+            mkdir "%INSTALL_DIR%"
+        )
+
+        :: Copy binary
+        echo Copying slashsum.exe to %INSTALL_DIR%...
+        copy /Y "%~dp0slashsum.exe" "%INSTALL_DIR%\slashsum.exe" >nul
+
+        :: Add to PATH
+        echo.
+        echo Adding to PATH...
+        setx PATH "%PATH%;%INSTALL_DIR%" >nul 2>&1
+
+        echo.
+        echo ========================================
+        echo  Installation complete!
+        echo ========================================
+        echo.
+        echo Please restart your terminal to use 'slashsum'.
+        echo Or run: %INSTALL_DIR%\slashsum.exe --version
+        echo.
+        pause
+        EOF
+
+        # Create uninstall script (batch)
+        cat > slashsum-windows-amd64-portable/uninstall.bat << 'EOF'
+        @echo off
+        :: Slashsum Uninstallation Script for Windows
+
+        echo ========================================
+        echo  Slashsum Uninstaller for Windows
+        echo ========================================
+        echo.
+
+        set "INSTALL_DIR_USER=%LOCALAPPDATA%\Slashsum"
+        set "INSTALL_DIR_SYSTEM=%ProgramFiles%\Slashsum"
+
+        :: Try to remove from user location
+        if exist "%INSTALL_DIR_USER%\slashsum.exe" (
+            echo Removing from %INSTALL_DIR_USER%...
+            del /Q "%INSTALL_DIR_USER%\slashsum.exe" 2>nul
+            rmdir "%INSTALL_DIR_USER%" 2>nul
+            echo Removed user installation.
+        )
+
+        :: Try to remove from system location (needs admin)
+        if exist "%INSTALL_DIR_SYSTEM%\slashsum.exe" (
+            echo Removing from %INSTALL_DIR_SYSTEM%...
+            del /Q "%INSTALL_DIR_SYSTEM%\slashsum.exe" 2>nul
+            rmdir "%INSTALL_DIR_SYSTEM%" 2>nul
+            echo Removed system installation.
+        )
+
+        echo.
+        echo ========================================
+        echo  Uninstallation complete!
+        echo ========================================
+        echo.
+        echo Note: You may need to manually remove Slashsum from your PATH.
+        echo.
+        pause
+        EOF
+
+        # Create the ZIP archive
+        zip -r slashsum-windows-amd64-portable.zip slashsum-windows-amd64-portable/
+
+        # Show contents
+        echo "=== Package contents ==="
+        unzip -l slashsum-windows-amd64-portable.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
         name: slashsum-windows
-        path: slashsum-windows-amd64.exe
+        path: slashsum-windows-amd64-portable.zip
 
 # Build Windows NSIS Installers (User + Admin)
   build-windows-installer:
@@ -694,6 +800,15 @@ jobs:
         name: slashsum-snap
         path: slashsum_*.snap
 
+    - name: Upload Snap Store assets
+      uses: actions/upload-artifact@v4
+      with:
+        name: snap-store-assets
+        path: |
+          store-assets/icon.png
+          store-assets/banner.png
+          store-assets/screenshots/
+
   # Build DEB package
   build-deb:
     runs-on: ubuntu-latest
@@ -793,8 +908,9 @@ jobs:
 
         # Copier tous les binaires et packages
         echo "=== Copying release files ==="
+        cp INSTALL release/ 2>/dev/null || true
         cp slashsum-linux/slashsum-linux-amd64-portable.tar.gz release/ 2>/dev/null || true
-        cp slashsum-windows/slashsum-windows-amd64.exe release/ 2>/dev/null || true
+        cp slashsum-windows/slashsum-windows-amd64-portable.zip release/ 2>/dev/null || true
         cp slashsum-installers/slashsum-setup-user-*.exe release/ 2>/dev/null || echo "No User installer"
         cp slashsum-installers/slashsum-setup-admin-*.exe release/ 2>/dev/null || echo "No Admin installer"
         cp slashsum-macos/slashsum-darwin-amd64-portable.tar.gz release/ 2>/dev/null || true
@@ -819,12 +935,13 @@ jobs:
 
           ### 📦 Downloads
 
+          #### Documentation
+          - **📖 INSTALL**: Complete installation guide for all platforms
+
           #### Portable packages (includes install script, LICENSE, README)
           - **🐧 Linux**: `slashsum-linux-amd64-portable.tar.gz`
+          - **🪟 Windows**: `slashsum-windows-amd64-portable.zip`
           - **🍎 macOS**: `slashsum-darwin-amd64-portable.tar.gz`
-
-          #### Windows
-          - **Standalone**: `slashsum-windows-amd64.exe`
 
           #### Windows Installers
           - **👤 User Installer**: `slashsum-setup-user-${{ github.ref_name }}.exe` (no admin rights required)
@@ -852,6 +969,18 @@ jobs:
           # Available for all system users
           ```
 
+          #### Windows (Portable)
+          ```powershell
+          # Extract the ZIP archive
+          Expand-Archive slashsum-windows-amd64-portable.zip -DestinationPath .
+          cd slashsum-windows-amd64-portable
+
+          # Run install script (or right-click > Run as administrator)
+          .\install.bat
+
+          # Or manual: copy slashsum.exe to a folder in your PATH
+          ```
+
           #### Ubuntu/Debian (DEB)
           ```bash
           wget https://github.com/NDXDeveloper/slashsum/releases/download/${{ github.ref_name }}/slashsum_${{ github.ref_name }}_amd64.deb
@@ -859,7 +988,13 @@ jobs:
           slashsum --version
           ```
 
-          #### Linux (Snap)
+          #### Linux (Snap Store - Recommended)
+          ```bash
+          sudo snap install slashsum
+          slashsum --version
+          ```
+
+          #### Linux (Snap from GitHub Release)
           ```bash
           wget https://github.com/NDXDeveloper/slashsum/releases/download/${{ github.ref_name }}/slashsum_${{ github.ref_name }}_amd64.snap
           sudo snap install --dangerous slashsum_${{ github.ref_name }}_amd64.snap

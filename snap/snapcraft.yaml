@@ -2,6 +2,7 @@
 name: slashsum
 version: git
 summary: Calculate multiple checksums simultaneously
+icon: store-assets/icon.png
 description: |
   Slashsum is a fast command-line tool for calculating multiple checksums
   (CRC32, MD5, SHA1, SHA256, SHA512) of files using parallel processing

@@ -3,7 +3,7 @@ use std::{
     env,                   // Environment variables and command-line arguments
     fs::File,              // File handling
     io::{BufReader, Read}, // Buffered reading
-    path::{Path, PathBuf}, // Path manipulation
+    path::PathBuf, // Path manipulation
     sync::Arc,             // Atomic Reference Counted pointer for thread-safe sharing
     thread,                // Thread management
     time::Instant,         // Time measurement
@@ -18,12 +18,12 @@ use sha2::{Sha256, Sha512}; // SHA256 and SHA512 hashers
 
 //use std::process::Command;
 
-/// Calcule un hachage en traitant les données par morceaux à la volée
-/// Paramètres:
-/// - rx: Récepteur du canal pour les morceaux de données
-/// - initializer: Fonction qui initialise le contexte de hachage
-/// - updater: Fonction qui met à jour le contexte avec de nouvelles données
-/// - finalizer: Fonction qui produit le hachage final
+/// Computes a hash by processing data chunks on the fly
+/// Parameters:
+/// - rx: Channel receiver for data chunks
+/// - initializer: Function that initializes the hash context
+/// - updater: Function that updates the context with new data
+/// - finalizer: Function that produces the final hash
 fn compute_hash<H, C, I, U, F>(
     rx: crossbeam_channel::Receiver<Arc<[u8]>>,
     initializer: I,
@@ -35,19 +35,19 @@ where
     U: Fn(&mut C, &[u8]),
     F: FnOnce(C) -> H,
 {
-    // Initialiser le contexte de hachage
+    // Initialize the hash context
     let mut context = initializer();
 
-    // Traiter chaque morceau de données dès réception
+    // Process each data chunk as it is received
     while let Ok(chunk) = rx.recv() {
         updater(&mut context, &chunk);
     }
 
-    // Finaliser le hachage
+    // Finalize the hash
     finalizer(context)
 }
 
-// Structure pour encapsuler le calcul CRC32
+// Structure to encapsulate CRC32 calculation
 struct Crc32Calculator {
     crc_algo: Crc<u32>,
     data: Vec<u8>,
@@ -62,12 +62,12 @@ impl Crc32Calculator {
     }
 
     fn update(&mut self, new_data: &[u8]) {
-        // Ajout des nouvelles données
+        // Append new data
         self.data.extend_from_slice(new_data);
     }
 
     fn finalize(self) -> u32 {
-        // Calcul du CRC32 sur toutes les données accumulées
+        // Calculate CRC32 on all accumulated data
         self.crc_algo.checksum(&self.data)
     }
 }
@@ -112,10 +112,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         false
     };
 
-    // Validate input file exists
-    let file_path = &args[1];
-    if !Path::new(file_path).exists() {
-        eprintln!("Error: File '{file_path}' not found");
+    // Expand tilde and validate input file exists
+    let file_path = expand_tilde(&args[1]);
+    if !file_path.exists() {
+        eprintln!("Error: File '{}' not found", args[1]);
         eprintln!("Use -h or --help for usage instructions");
         std::process::exit(1);
     }
@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start_time = Instant::now();
 
     // Open file and create buffered reader
-    let file = File::open(file_path)?;
+    let file = File::open(&file_path)?;
     let metadata = file.metadata()?;
     let size = metadata.len();
     let mut reader = BufReader::with_capacity(1_048_576, file); // 1MB buffer
@@ -147,13 +147,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Spawn thread for MD5 calculation
-    // Thread de calcul MD5
     let md5_handle = thread::spawn(move || {
         compute_hash(
             md5_rx,
-            || Context::new(),                     // initialisation du contexte MD5
-            |context, data| context.consume(data), // mise à jour avec les données
-            |context| format!("{:x}", context.compute()), // finalisation et formatage
+            || Context::new(),                     // initialize MD5 context
+            |context, data| context.consume(data), // update with data
+            |context| format!("{:x}", context.compute()), // finalize and format
         )
     });
 
@@ -161,11 +160,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sha1_handle = thread::spawn(move || {
         compute_hash(
             sha1_rx,
-            || Sha1::new(), // initialisation du contexte SHA1
+            || Sha1::new(), // initialize SHA1 context
             |digest, data| {
                 digest.update(data);
-            }, // mise à jour avec les données
-            |digest| format!("{:x}", digest.finalize()), // finalisation et formatage
+            }, // update with data
+            |digest| format!("{:x}", digest.finalize()), // finalize and format
         )
     });
 
@@ -173,11 +172,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sha256_handle = thread::spawn(move || {
         compute_hash(
             sha256_rx,
-            || Sha256::new(), // initialisation du contexte SHA256
+            || Sha256::new(), // initialize SHA256 context
             |digest, data| {
                 digest.update(data);
-            }, // mise à jour avec les données
-            |digest| format!("{:x}", digest.finalize()), // finalisation et formatage
+            }, // update with data
+            |digest| format!("{:x}", digest.finalize()), // finalize and format
         )
     });
 
@@ -185,11 +184,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sha512_handle = thread::spawn(move || {
         compute_hash(
             sha512_rx,
-            || Sha512::new(), // initialisation du contexte SHA512
+            || Sha512::new(), // initialize SHA512 context
             |digest, data| {
                 digest.update(data);
-            }, // mise à jour avec les données
-            |digest| format!("{:x}", digest.finalize()), // finalisation et formatage
+            }, // update with data
+            |digest| format!("{:x}", digest.finalize()), // finalize and format
         )
     });
 
@@ -229,7 +228,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Format final output
     let output = format!(
         "File: {}\nSize:    {}\nCRC32:   {}\nMD5:   {}\nSHA1:  {}\nSHA256: {}\nSHA512: {}\nTime:  {:.2?}",
-        file_path,
+        file_path.display(),
         format_size(size),
         crc32,
         md5,
@@ -242,7 +241,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle --save flag
     if save_flag {
-        let path = Path::new(file_path);
+        let path = &file_path;
         let file_name = path
             .file_name()
             .ok_or("Invalid file name")?
@@ -258,6 +257,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+/// Expands tilde (~) to home directory in file paths
+/// Handles both "~" and "~/path" patterns
+fn expand_tilde(path: &str) -> PathBuf {
+    if path.starts_with("~/") {
+        if let Some(home) = env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")) {
+            return PathBuf::from(home).join(&path[2..]);
+        }
+    } else if path == "~" {
+        if let Some(home) = env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")) {
+            return PathBuf::from(home);
+        }
+    }
+    PathBuf::from(path)
 }
 
 /// Converts byte count to human-readable format
@@ -312,7 +326,7 @@ EXAMPLES:
     );
 }
 
-/// Affiche la version et la licence MIT complète
+/// Displays version and full MIT license
 fn print_version_and_license() {
     println!(
         r#"MIT License
@@ -372,9 +386,9 @@ mod tests {
 
         let result = compute_hash(
             rx,
-            || Context::new(),                     // initialisation du contexte MD5
-            |context, data| context.consume(data), // mise à jour avec les données
-            |context| format!("{:x}", context.compute()), // finalisation et formatage
+            || Context::new(),                     // initialize MD5 context
+            |context, data| context.consume(data), // update with data
+            |context| format!("{:x}", context.compute()), // finalize and format
         );
 
         assert_eq!(result, "900150983cd24fb0d6963f7d28e17f72");
@@ -388,11 +402,11 @@ mod tests {
         tx.send(Arc::from(b"Hello world!".as_ref())).unwrap();
         drop(tx);
 
-        // Utiliser la même structure que celle que vous avez adoptée pour le CRC32
+        // Use the same structure adopted for CRC32
         let result = compute_hash(
             rx,
             || {
-                // Structure pour le calcul du CRC32
+                // Structure for CRC32 calculation
                 struct Crc32Calculator {
                     crc_algo: Crc<u32>,
                     data: Vec<u8>,
@@ -421,14 +435,14 @@ mod tests {
 
     #[test]
     fn test_format_size_edge_cases() {
-        // Test des cas limites pour format_size
+        // Test edge cases for format_size
         assert_eq!(format_size(0), "0 bytes");
         assert_eq!(format_size(1), "1 bytes");
         assert_eq!(format_size(1023), "1023 bytes");
         assert_eq!(format_size(1024), "1 KB (1024 bytes)");
         assert_eq!(format_size(1536), "1.50 KB (1536 bytes)");
         assert_eq!(format_size(1_099_511_627_776), "1 TB (1099511627776 bytes)");
-        // Correction: la valeur réelle calculée par votre fonction
+        // Note: actual value computed by the function
         assert_eq!(
             format_size(u64::MAX),
             "16777216 TB (18446744073709551615 bytes)"
@@ -437,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_compute_hash_sha1() {
-        // Test SHA1 avec "abc"
+        // Test SHA1 with "abc"
         let (tx, rx) = bounded(2);
         tx.send(Arc::from(b"abc".as_ref())).unwrap();
         drop(tx);
@@ -456,7 +470,7 @@ mod tests {
 
     #[test]
     fn test_compute_hash_sha256() {
-        // Test SHA256 avec "abc"
+        // Test SHA256 with "abc"
         let (tx, rx) = bounded(2);
         tx.send(Arc::from(b"abc".as_ref())).unwrap();
         drop(tx);
@@ -478,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_compute_hash_sha512() {
-        // Test SHA512 avec "abc"
+        // Test SHA512 with "abc"
         let (tx, rx) = bounded(2);
         tx.send(Arc::from(b"abc".as_ref())).unwrap();
         drop(tx);
@@ -500,9 +514,9 @@ mod tests {
 
     #[test]
     fn test_compute_hash_empty_input() {
-        // Test avec une entrée vide
+        // Test with empty input
         let (tx, rx) = bounded(1);
-        drop(tx); // Fermer immédiatement le canal
+        drop(tx); // Close channel immediately
 
         let result = compute_hash(
             rx,
@@ -511,16 +525,16 @@ mod tests {
             |context| format!("{:x}", context.compute()),
         );
 
-        // MD5 d'une chaîne vide
+        // MD5 of empty string
         assert_eq!(result, "d41d8cd98f00b204e9800998ecf8427e");
     }
 
     #[test]
     fn test_compute_hash_multiple_chunks() {
-        // Test avec plusieurs chunks
+        // Test with multiple chunks
         let (tx, rx) = bounded(5);
 
-        // Envoyer "Hello" puis " World!" pour former "Hello World!"
+        // Send "Hello" then " World!" to form "Hello World!"
         tx.send(Arc::from(b"Hello".as_ref())).unwrap();
         tx.send(Arc::from(b" World!".as_ref())).unwrap();
         drop(tx);
@@ -532,36 +546,36 @@ mod tests {
             |context| format!("{:x}", context.compute()),
         );
 
-        // MD5 de "Hello World!"
+        // MD5 of "Hello World!"
         assert_eq!(result, "ed076287532e86365e841e92bfc50d8c");
     }
 
     #[test]
     fn test_crc32_calculator() {
-        // Test direct de la structure Crc32Calculator
+        // Direct test of Crc32Calculator structure
         let mut calculator = Crc32Calculator::new();
         calculator.update(b"Hello");
         calculator.update(b" World!");
         let result = calculator.finalize();
 
-        // CRC32 de "Hello World!" - valeur corrigée
-        assert_eq!(result, 472456355); // 0x1c291ca3 en décimal
+        // CRC32 of "Hello World!" - corrected value
+        assert_eq!(result, 472456355); // 0x1c291ca3 in decimal
     }
 
     #[test]
     fn test_crc32_calculator_empty() {
-        // Test CRC32 avec données vides
+        // Test CRC32 with empty data
         let calculator = Crc32Calculator::new();
         let result = calculator.finalize();
 
-        // CRC32 d'une chaîne vide
+        // CRC32 of empty string
         assert_eq!(result, 0x00000000);
     }
 
     #[test]
     fn test_large_chunk_processing() {
-        // Test avec un gros chunk (similaire à la taille du buffer 1MB)
-        let large_data = vec![0x42u8; 1_048_576]; // 1MB de données
+        // Test with large chunk (similar to 1MB buffer size)
+        let large_data = vec![0x42u8; 1_048_576]; // 1MB of data
         let (tx, rx) = bounded(2);
 
         tx.send(Arc::from(large_data.into_boxed_slice())).unwrap();
@@ -574,16 +588,16 @@ mod tests {
             |context| format!("{:x}", context.compute()),
         );
 
-        // Ce test vérifie que le traitement de gros chunks fonctionne
-        assert_eq!(result.len(), 32); // MD5 produit toujours 32 caractères hex
+        // This test verifies that large chunk processing works
+        assert_eq!(result.len(), 32); // MD5 always produces 32 hex characters
     }
 
     #[test]
     fn test_channel_capacity() {
-        // Test avec une capacité de canal limitée
-        let (tx, rx) = bounded(1); // Capacité très petite
+        // Test with limited channel capacity
+        let (tx, rx) = bounded(1); // Very small capacity
 
-        // Utiliser un thread pour lire les données pendant qu'on les envoie
+        // Use a thread to read data while sending
         let handle = std::thread::spawn(move || {
             compute_hash(
                 rx,
@@ -593,33 +607,33 @@ mod tests {
             )
         });
 
-        // Envoyer plusieurs chunks rapidement
+        // Send multiple chunks quickly
         for i in 0..10 {
             let data = format!("chunk{}", i);
             tx.send(Arc::from(data.as_bytes())).unwrap();
         }
-        drop(tx); // Fermer le canal
+        drop(tx); // Close the channel
 
-        // Attendre le résultat
+        // Wait for result
         let result = handle.join().unwrap();
 
-        // Vérifier que tous les chunks ont été traités
+        // Verify all chunks were processed
         assert_eq!(result.len(), 32);
     }
 
     #[test]
     fn test_concurrent_hash_computation() {
-        // Test simulant le comportement concurrent réel
+        // Test simulating real concurrent behavior
         use std::thread;
 
         let test_data = b"This is a test for concurrent hash computation";
         let chunk = Arc::from(test_data.as_ref());
 
-        // Créer plusieurs canaux comme dans le code principal
+        // Create multiple channels like in the main code
         let (md5_tx, md5_rx) = bounded(1024);
         let (sha1_tx, sha1_rx) = bounded(1024);
 
-        // Lancer les threads de calcul
+        // Launch computation threads
         let md5_handle = thread::spawn(move || {
             compute_hash(
                 md5_rx,
@@ -640,40 +654,40 @@ mod tests {
             )
         });
 
-        // Envoyer les données
+        // Send data
         md5_tx.send(Arc::clone(&chunk)).unwrap();
         sha1_tx.send(chunk).unwrap();
 
-        // Fermer les canaux
+        // Close channels
         drop(md5_tx);
         drop(sha1_tx);
 
-        // Récupérer les résultats
+        // Retrieve results
         let md5_result = md5_handle.join().unwrap();
         let sha1_result = sha1_handle.join().unwrap();
 
-        // Vérifier les résultats - correction avec la vraie valeur calculée
+        // Verify results - corrected with actual computed value
         assert_eq!(md5_result, "f801c3cb79c641ab70efc5b525af573c");
-        assert_eq!(sha1_result.len(), 40); // SHA1 produit 40 caractères hex
+        assert_eq!(sha1_result.len(), 40); // SHA1 produces 40 hex characters
     }
 
     #[test]
     fn test_format_size_precision() {
-        // Test de précision pour format_size
+        // Precision test for format_size
         assert_eq!(format_size(1536), "1.50 KB (1536 bytes)");
         assert_eq!(format_size(1_572_864), "1.50 MB (1572864 bytes)");
         assert_eq!(format_size(1_610_612_736), "1.50 GB (1610612736 bytes)");
     }
 
-    // Test d'intégration avec fichier temporaire
+    // Integration test with temporary file
     #[test]
     fn test_with_temporary_file() -> Result<(), Box<dyn std::error::Error>> {
-        // Créer un fichier temporaire avec du contenu connu
+        // Create a temporary file with known content
         let mut temp_file = NamedTempFile::new()?;
         let test_content = b"Hello, World! This is a test file.";
         temp_file.write_all(test_content)?;
 
-        // Tester l'ouverture du fichier
+        // Test file opening
         let file = File::open(temp_file.path())?;
         let metadata = file.metadata()?;
 
@@ -684,9 +698,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Ignorer par défaut, exécuter avec cargo test -- --ignored
+    #[ignore] // Ignored by default, run with cargo test -- --ignored
     fn benchmark_hash_computation() {
-        let large_data = vec![0x42u8; 10_000_000]; // 10MB de données
+        let large_data = vec![0x42u8; 10_000_000]; // 10MB of data
         let chunk = Arc::from(large_data.into_boxed_slice());
 
         let start = Instant::now();
@@ -705,7 +719,35 @@ mod tests {
         let duration = start.elapsed();
         println!("Hash computation took: {:?}", duration);
 
-        // Vérifier que ça prend moins de 1 seconde (ajustez selon vos besoins)
+        // Verify it takes less than 1 second (adjust as needed)
         assert!(duration.as_secs() < 1);
+    }
+
+    #[test]
+    fn test_expand_tilde() {
+        use super::expand_tilde;
+
+        // Test path without tilde (should remain unchanged)
+        let path = expand_tilde("/absolute/path/file.txt");
+        assert_eq!(path, PathBuf::from("/absolute/path/file.txt"));
+
+        let path = expand_tilde("relative/path/file.txt");
+        assert_eq!(path, PathBuf::from("relative/path/file.txt"));
+
+        // Test tilde expansion (only works if HOME is set)
+        if let Ok(home) = std::env::var("HOME") {
+            let path = expand_tilde("~/test.txt");
+            assert_eq!(path, PathBuf::from(format!("{}/test.txt", home)));
+
+            let path = expand_tilde("~");
+            assert_eq!(path, PathBuf::from(&home));
+
+            let path = expand_tilde("~/nested/dir/file.txt");
+            assert_eq!(path, PathBuf::from(format!("{}/nested/dir/file.txt", home)));
+        }
+
+        // Test path starting with ~ but not ~/ (should remain unchanged)
+        let path = expand_tilde("~user/file.txt");
+        assert_eq!(path, PathBuf::from("~user/file.txt"));
     }
 }
