@@ -3,7 +3,7 @@ use std::{
     env,                   // Environment variables and command-line arguments
     fs::File,              // File handling
     io::{BufReader, Read}, // Buffered reading
-    path::PathBuf, // Path manipulation
+    path::PathBuf,         // Path manipulation
     sync::Arc,             // Atomic Reference Counted pointer for thread-safe sharing
     thread,                // Thread management
     time::Instant,         // Time measurement
@@ -150,8 +150,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let md5_handle = thread::spawn(move || {
         compute_hash(
             md5_rx,
-            || Context::new(),                     // initialize MD5 context
-            |context, data| context.consume(data), // update with data
+            || Context::new(),                            // initialize MD5 context
+            |context, data| context.consume(data),        // update with data
             |context| format!("{:x}", context.compute()), // finalize and format
         )
     });
@@ -386,8 +386,8 @@ mod tests {
 
         let result = compute_hash(
             rx,
-            || Context::new(),                     // initialize MD5 context
-            |context, data| context.consume(data), // update with data
+            || Context::new(),                            // initialize MD5 context
+            |context, data| context.consume(data),        // update with data
             |context| format!("{:x}", context.compute()), // finalize and format
         );
 
