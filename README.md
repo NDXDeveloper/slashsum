@@ -194,14 +194,14 @@ for f in *.iso; do slashsum "$f" --save; done
 ### Output Format
 
 ```
-File: filename.ext
-Size:    1.23 GB (1234567890 bytes)
-CRC32:   xxxxxxxx
-MD5:   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-SHA1:  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-SHA256: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-SHA512: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-Time:  X.XXs
+File:     large_file.iso
+Size:     4.68 GB (5033165312 bytes)
+CRC32:    8d7be4e9
+MD5:      a3b9d148c5f8d237f735a5d9795a2345
+SHA1:     2aae6c35c94fcfb415dbe95f408b9ce91ee846ed
+SHA256:   b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+SHA512:   309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f989dd35bc5ff499670da34255b45b0cfd830e81f605dcf7dc5542e93ae9cd76f
+Time:     12.45s
 ```
 
 ---
