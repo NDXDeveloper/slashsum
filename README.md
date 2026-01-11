@@ -483,3 +483,15 @@ copies of the Software...
 ---
 
 **Why "Slashsum"?** Combination of "slash" (/) for file paths and "checksum" - because every good tool needs a catchy name!
+
+---
+
+<div align="center">
+
+**Happy hashing!**
+
+[![Star on GitHub](https://img.shields.io/github/stars/NDXDeveloper/slashsum?style=social)](https://github.com/NDXDeveloper/slashsum)
+
+*If you find this useful, a star is always appreciated.*
+
+</div>
