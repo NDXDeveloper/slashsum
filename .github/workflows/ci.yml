@@ -346,6 +346,12 @@ jobs:
       with:
         name: slashsum-windows
 
+    - name: Extract Windows binary
+      run: |
+        unzip slashsum-windows-amd64-portable.zip
+        cp slashsum-windows-amd64-portable/slashsum.exe slashsum-windows-amd64.exe
+        ls -la *.exe
+
     - name: Install NSIS
       run: |
         sudo apt-get update
